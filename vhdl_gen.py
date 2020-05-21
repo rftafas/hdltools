@@ -1,6 +1,5 @@
 import sys
 import os
-from pathlib import path
 
 try:
     x = tabsize
