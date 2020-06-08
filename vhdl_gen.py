@@ -1,6 +1,15 @@
 import sys
 import os
 
+#TODO:
+#Process
+#Instances
+#Component
+#Functions
+#Procedures
+#Custom Custom
+#Block
+
 try:
     x = tabsize
 except NameError:
@@ -13,144 +22,159 @@ def indent(value):
             txt = txt + " "
     return txt;
 
-def entity_enum(list):
+def VHDLenum(list):
     hdl_code = ""
     i = 0
     for j in list:
         i = i+1
         if (i == len(list)):
-            hdl_code = hdl_code + j.code().replace(";","")
+            hdl_code = hdl_code + list[j].code().replace(";","")
         else:
-            hdl_code = hdl_code + j.code()
+            hdl_code = hdl_code + list[j].code()
     return hdl_code
 
-class element:
-    def __init__(self):
-        self.list = []
-    def add(self, name):
-        self.list.append(name)
+def DictCode(DictInput):
+    hdl_code = ""
+    for j in DictInput:
+        hdl_code = hdl_code + DictInput[j].code()
+    return hdl_code
 
-class library_obj:
-    class package_map:
-        class package_obj:
-            def __init__(self, name):
-                self.operator = "all"
-                self.name     = name
-
-        def __init__(self):
-            self.list = []
-
-        def add(self, name):
-            self.list.append(self.package_obj(name))
-
-    def __init__(self, name):
+class PackageObj:
+    def __init__(self, name, *args):
         self.name = name
-        self.package = self.package_map()
+        if args:
+            self.operator = args[0]
+        else:
+            self.operator = "all"
 
+class PackageList(dict):
+    def add(self, name, *args):
+        self[name] = PackageObj(name)
+        if args:
+            self[name].operator = arg[0]
+
+class LibraryObj:
+    def __init__(self, name, *args):
+        self.name = name
+        self.package = PackageList()
     def code(self):
         hdl_code = ""
         hdl_code = hdl_code + indent(0) + ("library %s;\r\n" % self.name)
-        if self.package.list:
-            for j in self.package.list:
-                hdl_code = hdl_code + indent(1) + ("use %s.%s.%s;\r\n" % (self.name, j.name, j.operator))
-        hdl_code = hdl_code + "\r\n"
+        for j in self.package:
+            hdl_code = hdl_code + indent(1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
         return hdl_code
 
-class generic_list:
-    class generic_obj:
-        def __init__(self, name, type, init_value):
-            self.name = name
-            self.init = init_value
-            self.type = type
-        def code(self):
-            hdl_code = indent(2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init))
-            return hdl_code
-    def __init__(self):
-        self.list = []
-    def add(self, name, type, init):
-        self.list.append(self.generic_obj(name,type,init))
-    def code(self):
-        return entity_enum(self.list)
-
-class port_list:
-    class port_obj:
-        def __init__(self, name, direction, type):
-            self.name = name
-            self.direction = direction
-            self.type = type
-        def code(self):
-            hdl_code = indent(2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
-            return hdl_code
-    def __init__(self):
-        self.list = []
-    def add(self, name, direction, type):
-        self.list.append(self.port_obj(name, direction, type))
-    def code(self):
-        return entity_enum(self.list)
-
-class constant_list:
-    class vhdl_constant_obj:
-        def __init__(self, name, type, init):
-            self.name = name
-            self.type = type
-            self.init = init
-        def code(self):
-            return indent(1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
-    def __init__(self):
-        self.list = []
-    def add(self,name,type,init):
-        self.list.append(self.vhdl_constant_obj(name,type,init))
-    def code(self):
-        hdl_code = ""
-        for j in self.list:
-            hdl_code = hdl_code + j.code()
-        return hdl_code
-
-class signal_list:
-    class vhdl_signal_obj:
-        def __init__(self, name, type, init):
-            self.name = name
-            self.type = type
-            self.init = init
-        def code(self):
-            if (self.init == ""):
-                return indent(1) + ("signal %s : %s;\r\n" % (self.name, self.type))
-            else:
-                return indent(1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, self.init))
-
-    def __init__(self):
-        self.list = []
-    def add(self,name,type,init):
-        self.list.append(self.vhdl_signal_obj(name,type,init))
-    def code(self):
-        hdl_code = ""
-        for j in self.list:
-            hdl_code = hdl_code + j.code()
-        return hdl_code
-
-class vhdl_library:
-    def __init__(self):
-        self.list = []
-
+class LibraryList(dict):
     def add(self, name):
-        self.list.append(library_obj(name))
-
+        self[name] = LibraryObj(name)
     def code(self):
-        hdl_code = ""
-        if self.list:
-            for j in self.list:
-                hdl_code = hdl_code + j.code()
+        return DictCode(self) + "\r\n"
+
+class GenericObj:
+    def __init__(self, name, type, init_value):
+        self.name = name
+        self.init = init_value
+        self.type = type
+    def code(self):
+        hdl_code = indent(2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init))
         return hdl_code
 
-class vhdl_entity:
+class PortObj:
+    def __init__(self, name, direction, type):
+        self.name = name
+        self.direction = direction
+        self.type = type
+    def code(self):
+        hdl_code = indent(2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
+        return hdl_code
+
+class GenericList(dict):
+    def add(self, name, type, init):
+        self[name] = GenericObj(name,type,init)
+    def code(self):
+        return VHDLenum(self)
+
+class PortList(dict):
+    def add(self, name, direction, type):
+        self[name] = PortObj(name, direction, type)
+    def code(self):
+        return VHDLenum(self)
+
+class ConstantObj:
+    def __init__(self, name, type, init):
+        self.name = name
+        self.type = type
+        self.init = init
+    def code(self):
+        return indent(1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
+
+class SignalObj:
+    def __init__(self, name, type, *args):
+        self.name = name
+        self.type = type
+        if args:
+            self.init = args[0]
+        else:
+            self.init = "undefined"
+    def code(self):
+        if self.init != "undefined":
+            return indent(1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, arg[0]))
+        else:
+            return indent(1) + ("signal %s : %s;\r\n" % (self.name, self.type))
+
+class VariableObj:
+    def __init__(self, name, type, *args):
+        self.name = name
+        self.type = type
+        if args:
+            self.init = args[0]
+        else:
+            self.init = "undefined"
+    def code(self):
+        if self.init != "undefined":
+            return indent(1) + ("variable %s : %s := %s;\r\n" % (self.name, self.type, arg[0]))
+        else:
+            return indent(1) + ("variable %s : %s;\r\n" % (self.name, self.type))
+
+class ConstantList(dict):
+    def add(self,name,type,init):
+        self[name] = ConstantObj(name,type,init)
+    def code(self):
+        return DictCode(self)
+
+class SignalList(dict):
+    def add(self,name,type,*args):
+        self[name] = SignalObj(name,type,*args)
+    def code(self):
+        return DictCode(self)
+
+class VariableList(dict):
+    def add(self,name,type,*args):
+        self[name] = VariableObj(name,type,*args)
+    def code(self):
+        return DictCode(self)
+
+class GenericCodeBlock:
+    def __init__(self, indent):
+        self.list = []
+        self.indent = indent
+    def add(self,text):
+        self.list.append(text)
+    def code(self):
+        hdl_code = ""
+        for j in self.list:
+            hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
+        return hdl_code
+
+class Entity:
     def __init__(self, name):
         self.name    = name
-        self.generic = generic_list()
-        self.port    = port_list()
+        self.generic = GenericList()
+        self.port    = PortList()
 
     def code(self):
         hdl_code = indent(0) + ("entity %s is\r\n" % self.name)
-        if (self.generic.list):
+        if (self.generic):
             hdl_code = hdl_code + indent(1) + ("generic (\r\n")
             hdl_code = hdl_code + self.generic.code()
             hdl_code = hdl_code + indent(1) + (");\r\n")
@@ -158,7 +182,7 @@ class vhdl_entity:
             hdl_code = hdl_code + indent(1) + ("--generic (\r\n")
             hdl_code = hdl_code + indent(2) + ("--generic_declaration_tag\r\n")
             hdl_code = hdl_code + indent(1) + ("--);\r\n")
-        if (self.port.list):
+        if (self.port):
             hdl_code = hdl_code + indent(1) + ("port (\r\n")
             hdl_code = hdl_code + self.port.code()
             hdl_code = hdl_code + indent(1) + (");\r\n")
@@ -170,57 +194,65 @@ class vhdl_entity:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-class vhdl_architecture:
+class Architecture:
     def __init__(self, name, entity_name):
         self.name = name
-        self.entity_name = entity_name
-        self.signal = signal_list()
-        self.constant = constant_list()
-        self.declaration_code = ""
-        self.body_code = ""
+        self.EntityName = entity_name
+        self.Signal = SignalList()
+        self.Constant = ConstantList()
+        self.Functions = ""
+        self.Procedures = ""
+        self.CustomTypes = ""
+        self.DeclarationHeader = GenericCodeBlock(1)
+        self.DeclarationFooter = GenericCodeBlock(1)
+        self.BodyCodeHeader = GenericCodeBlock(1)
+        self.Instances = ""
+        self.Blocks = ""
+        self.Process = ""
+        self.BodyCodeFooter = GenericCodeBlock(1)
 
     def code(self):
         hdl_code = ""
-        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.name, self.entity_name))
+        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.name, self.EntityName))
         hdl_code = hdl_code + "\r\n"
-        if (self.constant.list != []):
-            hdl_code = hdl_code + self.constant.code()
+        if (self.DeclarationHeader):
+            hdl_code = hdl_code + self.DeclarationHeader.code()
             hdl_code = hdl_code + "\r\n"
-        if (self.signal.list != []):
-            hdl_code = hdl_code + self.signal.code()
+        if (self.Constant):
+            hdl_code = hdl_code + self.Constant.code()
             hdl_code = hdl_code + "\r\n"
-        if (self.declaration_code != ""):
-            hdl_code = hdl_code + self.declaration_code
+        if (self.Signal):
+            hdl_code = hdl_code + self.Signal.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(1) + ("--architecture_declaration_tag\r\n")
         hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(0) + ("begin\r\n")
         hdl_code = hdl_code + "\r\n"
-        if (self.body_code != ""):
-            hdl_code = hdl_code + self.body_code
+        if (self.BodyCodeHeader):
+            hdl_code = hdl_code + self.BodyCodeHeader.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(1) + ("--architecture_body_tag\r\n")
+        hdl_code = hdl_code + indent(1) + ("--architecture_body_tag.\r\n")
         hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(0) + ("end %s\r\n" % self.name)
+        if (self.BodyCodeHeader):
+            hdl_code = hdl_code + self.BodyCodeFooter.code()
+            hdl_code = hdl_code + "\r\n"
+        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-class vhdl_file:
+class BasicVHDL:
     def __init__(self, entity_name, architecture_name):
-        self.library      = vhdl_library()
-        self.entity       = vhdl_entity(entity_name)
-        self.architecture = vhdl_architecture(architecture_name, entity_name)
+        self.Library      = LibraryList()
+        self.Entity       = Entity(entity_name)
+        self.Architecture = Architecture(architecture_name, entity_name)
 
     def write_file(self):
-        hdl_code = ""
-        hdl_code = hdl_code + self.library.code()
-        hdl_code = hdl_code + self.entity.code()
-        hdl_code = hdl_code + self.architecture.code()
+        hdl_code = self.code()
 
         if (not os.path.exists("output")):
             os.makedirs(directory)
 
-        output_file_name = "output/"+self.entity.name+".vhd"
+        output_file_name = "output/"+self.Entity.name+".vhd"
         #to do: check if file exists. If so, emit a warning and
         #check if must clear it.
         output_file = open(output_file_name,"w+")
@@ -232,7 +264,7 @@ class vhdl_file:
 
     def code(self):
         hdl_code = ""
-        hdl_code = hdl_code + self.library.code()
-        hdl_code = hdl_code + self.entity.code()
-        hdl_code = hdl_code + self.architecture.code()
+        hdl_code = hdl_code + self.Library.code()
+        hdl_code = hdl_code + self.Entity.code()
+        hdl_code = hdl_code + self.Architecture.code()
         return hdl_code
