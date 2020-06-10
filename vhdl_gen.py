@@ -118,7 +118,7 @@ class SignalObj:
             self.init = "undefined"
     def code(self):
         if self.init != "undefined":
-            return indent(1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, arg[0]))
+            return indent(1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, self.init))
         else:
             return indent(1) + ("signal %s : %s;\r\n" % (self.name, self.type))
 
@@ -132,7 +132,7 @@ class VariableObj:
             self.init = "undefined"
     def code(self):
         if self.init != "undefined":
-            return indent(1) + ("variable %s : %s := %s;\r\n" % (self.name, self.type, arg[0]))
+            return indent(1) + ("variable %s : %s := %s;\r\n" % (self.name, self.type, self.init))
         else:
             return indent(1) + ("variable %s : %s;\r\n" % (self.name, self.type))
 
@@ -202,7 +202,7 @@ class Architecture:
         self.Constant = ConstantList()
         self.Functions = ""
         self.Procedures = ""
-        self.CustomTypes = ""
+        self.CustomTypes = GenericCodeBlock(1)
         self.DeclarationHeader = GenericCodeBlock(1)
         self.DeclarationFooter = GenericCodeBlock(1)
         self.BodyCodeHeader = GenericCodeBlock(1)
