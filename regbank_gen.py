@@ -2,241 +2,221 @@ import sys
 import os
 import vhdl_gen as vhdl
 import math
-import myhdl
-from myhdl import block, always_seq, always_comb, Signal, ResetSignal, modbv
-from myhdl._extractHierarchy import (_HierExtr, _isMem, _getMemInfo, _UserVhdlCode, _userCodeMap)
 
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "Write2Clear", "Write2Pulse"}
 
 TemplateCode = """
-	-- I/O Connections assignments
-	S_AXI_AWREADY	<= axi_awready;
-	S_AXI_WREADY	<= axi_wready;
-	S_AXI_BRESP	  <= axi_bresp;
-	S_AXI_BVALID	<= axi_bvalid;
-	S_AXI_ARREADY	<= axi_arready;
-	S_AXI_RDATA	  <= axi_rdata;
-	S_AXI_RRESP	  <= axi_rresp;
-	S_AXI_RVALID	<= axi_rvalid;
+    ------------------------------------------------------------------------------------------------
+    -- I/O Connections assignments
+    ------------------------------------------------------------------------------------------------
+    S_AXI_AWREADY	<= awready_s;
+    S_AXI_WREADY	<= wready_s;
+    S_AXI_BRESP	  <= bresp_s;
+    S_AXI_BVALID	<= bvalid_s;
+    S_AXI_ARREADY	<= arready_s;
+    S_AXI_RDATA	  <= rready_s;
+    S_AXI_RRESP	  <= rresp_s;
+    S_AXI_RVALID	<= rvalid_s;
 
-	-- Implement axi_awready generation
-	-- axi_awready is asserted for one S_AXI_ACLK clock cycle when both
-	-- S_AXI_AWVALID and S_AXI_WVALID are asserted. axi_awready is
-	-- de-asserted when reset is low.
-  process(S_AXI_ARESETN, S_AXI_ACLK)
-  begin
-		if S_AXI_ARESETN = '0' then
-					axi_awready <= '0';
-					aw_en <= '1';
-		elsif rising_edge(S_AXI_ACLK) then
-      if (axi_awready = '0' and S_AXI_AWVALID = '1' and S_AXI_WVALID = '1' and aw_en = '1') then
-      -- slave is ready to accept write address when
-      -- there is a valid write address and write data
-      -- on the write address and data bus. This design
-      -- expects no outstanding transactions.
-          axi_awready <= '1';
-          aw_en <= '0';
-      elsif (S_AXI_BREADY = '1' and axi_bvalid = '1') then
-          aw_en <= '1';
-          axi_awready <= '0';
-      else
-          axi_awready <= '0';
-      end if;
-    end if;
-	end process;
+    ------------------------------------------------------------------------------------------------
+    --write
+    ------------------------------------------------------------------------------------------------
+    waddr_p : process(S_AXI_ARESETN, S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            awready_s <= '1;
+            awaddr_s  <= (others => '1');
+        elsif rising_edge(S_AXI_ACLK) then
+            if (awready_s = '1' and S_AXI_AWVALID = '1' ) then
+                awready_s <= '0';
+                awaddr_s <= S_AXI_AWADDR;
+            elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
+                awready_s <= '1';
+            elsif timeout_s = '1' then
+                awready_s <= '1';
+            end if;
+        end if;
+    end process;
 
-	-- Implement axi_awaddr latching
-	-- This process is used to latch the address when both
-	-- S_AXI_AWVALID and S_AXI_WVALID are valid.
+    wdata_p : process (S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            wready_s <= '1';
+        elsif rising_edge(S_AXI_ACLK) then
+            if (wready_s = '1' and S_AXI_WVALID = '1') then
+                wready_s <= '0';
+            elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
+                wready_s <= '1';
+            elsif timeout_s = '1' then
+                wready_s <= '1';
+            end if;
+        end if;
+    end process;
 
-	process (S_AXI_ARESETN, S_AXI_ACLK)
-	begin
-		if S_AXI_ARESETN = '0' then
-			axi_awaddr <= (others => '0');
-	  elsif rising_edge(S_AXI_ACLK) then
-      if (axi_awready = '0' and S_AXI_AWVALID = '1' and S_AXI_WVALID = '1' and aw_en = '1') then
-        -- Write Address latching
-        axi_awaddr <= S_AXI_AWADDR;
-	    end if;
-	  end if;
-	end process;
+    wresp_p : process (S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            bvalid_s  <= '0';
+            bresp_s   <= "00";
+        elsif rising_edge(S_AXI_ACLK) then
+            if (wready_s = '1' and awready_s = '1' ) then
+                bvalid_s <= '1';
+                bresp_s  <= "00";
+                bresp_timer_sr <= ( 0 => '1', others=>'0' );
+            elsif wtimeout_s = '1' then
+                bvalid_s <= '1';
+                bresp_s  <= "10";
+                bresp_timer_sr <= ( 0 => '1', others=>'0' );
+            elsif bvalid_s = '1 then
+                bresp_timer_sr <= bresp_timer_sr(14 downto 0) & bresp_timer_sr(15);
+                if S_AXI_BREADY = '1' or bresp_timer_sr(15) = '0' then
+                    bvalid_s <= '0';
+                    bresp_s  <= "00";
+                    bresp_timer_sr <= ( others=>'0' );
+                end if;
+            end if;
+        end if;
+    end process;
 
-	-- Implement axi_wready generation
-	-- axi_wready is asserted for one S_AXI_ACLK clock cycle when both
-	-- S_AXI_AWVALID and S_AXI_WVALID are asserted. axi_wready is
-	-- de-asserted when reset is low.
+    wtimer_p : process (S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            wtimeout_s   <= '0';
+        elsif rising_edge(S_AXI_ACLK) then
+            wtimeout_s <= wtimeout_sr(15);
+            if wready_s = '1' or awready_s = '1' then
+                wtimeout_sr <= ( 0 => '1', others=>'0');
+            elsif wready_s = '1' and awready_s = '1' then
+                wtimeout_sr (others=>'0');
+            else
+                wtimeout_sr <= wtimeout_sr(14 downto 0) & wtimeout_sr(15);
+            end if;
+        end if;
+    end process;
 
-	process (S_AXI_ACLK)
-	begin
-		if S_AXI_ARESETN = '0' then
-			axi_wready <= '0';
-		elsif rising_edge(S_AXI_ACLK) then
-    	if (axi_wready = '0' and S_AXI_WVALID = '1' and S_AXI_AWVALID = '1' and aw_en = '1') then
-	          -- slave is ready to accept write data when
-	          -- there is a valid write address and write data
-	          -- on the write address and data bus. This design
-	          -- expects no outstanding transactions.
-	          axi_wready <= '1';
-	    else
-	    	axi_wready <= '0';
-	    end if;
-	  end if;
-	end process;
+  	regwrite_en <= wready_s  and  awready_s;
 
-	-- Implement memory mapped register select and write logic generation
-	-- The write data is accepted and written to memory mapped registers when
-	-- axi_awready, S_AXI_WVALID, axi_wready and S_AXI_WVALID are asserted. Write strobes are used to
-	-- select byte enables of slave registers while writing.
-	-- These registers are cleared when reset (active low) is applied.
-	-- Slave register write enable is asserted when valid address and data are available
-	-- and the slave is ready to accept the write address and write data.
-	regwrite_en <= axi_wready and S_AXI_WVALID and axi_awready and S_AXI_AWVALID ;
+    wreg_p : process (S_AXI_ACLK)
+        variable loc_addr : integer;
+    begin
+        if S_AXI_ARESETN = '0' then
+            regwrite_s <= (others => (others => '0'));
+        elsif rising_edge(S_AXI_ACLK) then
+            loc_addr := to_integer(unsigned(awaddr_s(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB)));
+            for j in regwrite_s'range loop
+                for k in BYTE_NUM-1 downto 0 loop
+                    for m in 7 downto 0 loop
+                        if ext_clear_s(j)(k*8+m) = '1' then
+                            regwrite_s(j)(k*8+m) <= '0';
+                        elsif regwrite_en = '1' then
+                            if S_AXI_WSTRB(k) = '1' then
+                                if write2clear_c(j)(k*8+m) or write2pulse_c(j)(k*8+m) = '1' then
+                                    if regwrite_s(j)(k*8+m) = '1' then
+                                        regwrite_s(j)(k*8+m) <= '0';
+                                    else
+                                        regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
+                                    end if;
+                                else
+                                    regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
+                                end if;
+                            end if;
+                        end if;
+                    end loop;
+                end loop;
+            end loop;
+        end if;
+    end process;
 
+  	------------------------------------------------------------------------------------------------
+    --Read
+    ------------------------------------------------------------------------------------------------
+    raddr_p : process(S_AXI_ARESETN, S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            arready_s <= '0';
+            araddr_s  <= (others => '1');
+        elsif rising_edge(S_AXI_ACLK) then
+            if (arready_s = '1' and S_AXI_ARVALID = '1') then
+                arready_s <= '0';
+                araddr_s  <= S_AXI_ARADDR;
+            elsif rvalid_s = '1' then
+                arready_s <= '1';
+            end if;
+        end if;
+    end process;
 
+    --AXI uses same channel for data and response.
+    --one can consider that AXI-S RRESP is sort of TUSER.
+    rresp_rdata_p : process(S_AXI_ARESETN, S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            rvalid_s <= '0';
+            rresp_s  <= "00";
+        elsif rising_edge(S_AXI_ACLK) then
+            if arready_s = '0' then --there is an address waiting for us.
+                axi_rvalid <= '1';
+                axi_rresp  <= "00"; -- 'OKAY' response
+            elsif S_AXI_RREADY = '1' then
+                --Read data is accepted by the master
+                axi_rvalid <= '0';
+            elsif rtimeout_s = '1' then
+                --when it times out? when after doing my part, master does not respond
+                --with the RREADY, meaning he havent read my data.
+                axi_rvalid <= '0';
+                axi_rresp  <= "10"; -- No one is expected to read this. Debug only.
+            else
+                axi_rvalid <= '0';
+                axi_rresp  <= "00"; -- No one is expected to read this. Debug only.
+            end if;
+        end if;
+    end process;
 
-	process (S_AXI_ACLK)
-		variable loc_addr : integer;
-	begin
-		if S_AXI_ARESETN = '0' then
-			regwrite_s <= (others => (others => '0'));
-		elsif rising_edge(S_AXI_ACLK) then
-			loc_addr := to_integer(unsigned(axi_awaddr(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB)));
-			for j in regwrite_s'range loop
-				for k in BYTE_NUM-1 downto 0 loop
-					for m in 7 downto 0 loop
-						if ext_clear_s(j)(k*8+m) = '1' then
-						elsif regwrite_en = '1' then
-							if S_AXI_WSTRB(k) = '1' then
-								if write2clear_c(j)(k*8+m) or write2pulse_c(j)(k*8+m) = '1' then
-									if regwrite_s(j)(k*8+m) = '1' then
-										regwrite_s(j)(k*8+m) <= '0';
-									else
-										regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
-									end if;
-								else
-									regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
-								end if;
-							end if;
-						end if;
-						end loop;
-				end loop;
-			end loop;
-		end if;
-	end process;
+    rtimer_p : process (S_AXI_ACLK)
+    begin
+        if S_AXI_ARESETN = '0' then
+            rtimeout_s   <= '0';
+        elsif rising_edge(S_AXI_ACLK) then
+            rtimeout_s <= wtimeout_sr(15);
+            if rready_s = '0' then
+                rtimeout_sr <= ( 0 => '1', others=>'0');
+            else
+                rtimeout_sr <= rtimeout_sr(14 downto 0) & rtimeout_sr(15);
+            end if;
+        end if;
+    end process;
 
-
-
-	-- Implement write response logic generation
-	-- The write response and response valid signals are asserted by the slave
-	-- when axi_wready, S_AXI_WVALID, axi_wready and S_AXI_WVALID are asserted.
-	-- This marks the acceptance of address and indicates the status of
-	-- write transaction.
-
-	process (S_AXI_ACLK)
-	begin
-	  if rising_edge(S_AXI_ACLK) then
-	    if S_AXI_ARESETN = '0' then
-	      axi_bvalid  <= '0';
-	      axi_bresp   <= "00"; --need to work more on the responses
-	    else
-	      if (axi_awready = '1' and S_AXI_AWVALID = '1' and axi_wready = '1' and S_AXI_WVALID = '1' and axi_bvalid = '0'  ) then
-	        axi_bvalid <= '1';
-	        axi_bresp  <= "00";
-	      elsif (S_AXI_BREADY = '1' and axi_bvalid = '1') then   --check if bready is asserted while bvalid is high)
-	        axi_bvalid <= '0';                                 -- (there is a possibility that bready is always asserted high)
-	      end if;
-	    end if;
-	  end if;
-	end process;
-
-	-- Implement axi_arready generation
-	-- axi_arready is asserted for one S_AXI_ACLK clock cycle when
-	-- S_AXI_ARVALID is asserted. axi_awready is
-	-- de-asserted when reset (active low) is asserted.
-	-- The read address is also latched when S_AXI_ARVALID is
-	-- asserted. axi_araddr is reset to zero on reset assertion.
-
-	process(S_AXI_ARESETN, S_AXI_ACLK)
-	begin
-		if S_AXI_ARESETN = '0' then
-			axi_arready <= '0';
-			axi_araddr  <= (others => '1');
-	  elsif rising_edge(S_AXI_ACLK) then
-	      if (axi_arready = '0' and S_AXI_ARVALID = '1') then
-	        -- indicates that the slave has acceped the valid read address
-	        axi_arready <= '1';
-	        -- Read Address latching
-	        axi_araddr  <= S_AXI_ARADDR;
-	      else
-	        axi_arready <= '0';
-	      end if;
-	    end if;
-	end process;
-
-	-- Implement axi_arvalid generation
-	-- axi_rvalid is asserted for one S_AXI_ACLK clock cycle when both
-	-- S_AXI_ARVALID and axi_arready are asserted. The slave registers
-	-- data are available on the axi_rdata bus at this instance. The
-	-- assertion of axi_rvalid marks the validity of read data on the
-	-- bus and axi_rresp indicates the status of read transaction.axi_rvalid
-	-- is deasserted on reset (active low). axi_rresp and axi_rdata are
-	-- cleared to zero on reset (active low).
-	process (S_AXI_ACLK)
-	begin
-		if S_AXI_ARESETN = '0' then
-			axi_rvalid <= '0';
-			axi_rresp  <= "00";
-	  elsif rising_edge(S_AXI_ACLK) then
-	      if (axi_arready = '1' and S_AXI_ARVALID = '1' and axi_rvalid = '0') then
-	        -- Valid read data is available at the read data bus
-	        axi_rvalid <= '1';
-	        axi_rresp  <= "00"; -- 'OKAY' response
-	      elsif (axi_rvalid = '1' and S_AXI_RREADY = '1') then
-	        -- Read data is accepted by the master
-	        axi_rvalid <= '0';
-	      end if;
-	    end if;
-	end process;
-
-	-- Implement memory mapped register select and read logic generation
-	-- Slave register read enable is asserted when valid address is available
-	-- and the slave is ready to accept the read address.
-	regread_en <= axi_arready and S_AXI_ARVALID and (not axi_rvalid) ;
+    --we only act if there is no pending read.
+  	regread_en <= arready_s nand rvalid_s;
 
     -- Get data from ports to bus
     read_reg_p : process( S_AXI_ACLK ) is
-				variable reg_tmp : reg_t := (others => (others => '0'));
+        variable loc_addr : integer;
+        variable reg_tmp : reg_t := (others => (others => '0'));
     begin
-				if (S_AXI_ARESETN = '0') then
-					axi_rdata <= (others => '0');
-					reg_tmp    := (others => (others => '0'));
+        if (S_AXI_ARESETN = '0') then
+            reg_tmp  := (others => (others => '0'));
+            reg_lock := (others => (others => '0'));
         elsif (rising_edge (S_AXI_ACLK)) then
-					reg_tmp   := regread_s;
-          axi_rdata <= (others => '0');
-					for j in regread_s'range then
-						for k in regread_s(0)'range then'
-          		if regclear_s(j)(k) = '1' then
-								reg_tmp(j)(k) <= '0';
-							elsif regset_s(j)(k) = '1' then
-								reg_tmp(j)(k) <= '1';
-							end if;
-						end loop;
-					end loop;
-					axi_rdata <= reg_tmp(to_integer(axi_araddr(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB))
+            for j in regread_s'range then
+                for k in regread_s(0)'range then'
+                    if regclear_s(j)(k) = '1' then
+                        reg_tmp(j)(k)  <= '0';
+                        reg_lock(j)(k) <= '0';
+                    elsif regset_s(j)(k) = '1' then
+                        reg_tmp(j)(k)  <= '1';
+                        reg_lock(j)(k) <= '1';
+                    elsif reg_lock(j)(k) = '0' then
+                        reg_tmp(j)(k) <= regread_s(j)(k);
+                    end if;
+                end loop;
+            end loop;
+            --
+            loc_addr := to_integer(axi_araddr(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB);
+            if regread_en = '1' then
+                S_AXI_RDATA  <= reg_tmp(loc_addr);
+            end if;
         end if;
     end process;
-
-    read_p : process ( S_AXI_ACLK )
-    begin
-			if S_AXI_ARESETN = '0'then
-					S_AXI_RDATA  <= (others => '0');
-      elsif (rising_edge (S_AXI_ACLK)) then
-        if (regread_en = '1') then
-          S_AXI_RDATA	<= axi_rdata;
-        end if;
-      end if;
-    end process;
-		S_AXI_RDATA	  <= axi_rdata;
 """
 
 def GetDirection(type):
@@ -332,16 +312,20 @@ class RegisterBank(vhdl.BasicVHDL):
         self.Entity.port.add("S_AXI_RREADY", "in", "std_logic")
 
         self.Architecture.CustomTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
-        self.Architecture.Signal.add("axi_awaddr", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Architecture.Signal.add("axi_awready", "std_logic")
-        self.Architecture.Signal.add("axi_wready", "std_logic")
-        self.Architecture.Signal.add("axi_bresp", "std_logic_vector(1 downto 0)")
-        self.Architecture.Signal.add("axi_bvalid", "std_logic")
-        self.Architecture.Signal.add("axi_araddr", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Architecture.Signal.add("axi_arready", "std_logic")
-        self.Architecture.Signal.add("axi_rdata", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
-        self.Architecture.Signal.add("axi_rresp", "std_logic_vector(1 downto 0)")
-        self.Architecture.Signal.add("axi_rvalid", "std_logic")
+        self.Architecture.Signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.Architecture.Signal.add("awready_s", "std_logic")
+        self.Architecture.Signal.add("wready_s", "std_logic")
+        self.Architecture.Signal.add("bresp_s", "std_logic_vector(1 downto 0)")
+        self.Architecture.Signal.add("bvalid_s", "std_logic")
+        self.Architecture.Signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.Architecture.Signal.add("wtimeout_s", "std_logic")
+
+        self.Architecture.Signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.Architecture.Signal.add("arready_s", "std_logic")
+        self.Architecture.Signal.add("rresp_s", "std_logic_vector(1 downto 0)")
+        self.Architecture.Signal.add("rvalid_s", "std_logic")
+        self.Architecture.Signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.Architecture.Signal.add("rtimeout_s", "std_logic")
 
         self.Architecture.Signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
         self.Architecture.Signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
@@ -350,7 +334,6 @@ class RegisterBank(vhdl.BasicVHDL):
 
         self.Architecture.Signal.add("regread_en", "std_logic")
         self.Architecture.Signal.add("regwrite_en", "std_logic")
-        self.Architecture.Signal.add("aw_en", "std_logic")
 
         for lines in TemplateCode.splitlines():
             self.Architecture.BodyCodeHeader.add(lines)
@@ -442,83 +425,54 @@ class RegisterBank(vhdl.BasicVHDL):
 
 
 
-myregbank = RegisterBank("myregbank","rtl",32,8)
-myregbank.add(0,"golden")
-myregbank.reg[0].add("golden","ReadOnly",0,32)
-myregbank.add(1,"scrap1")
-myregbank.reg[1].add("scrap1","ReadWrite",0,32)
-myregbank.reg[1][0].ExternalClear = True
-myregbank.add(2,"scrap2")
-myregbank.reg[2].add("scrap2","ReadWrite",0,32)
-myregbank.reg[2][0].ExternalClear = True
-
-myregbank.add(3,"diverse")
-myregbank.reg[3].add("pulse","Write2Pulse",0,1)
-myregbank.reg[3].add("w2l","Write2Clear",2,1)
-myregbank.reg[3].add("rot","ReadOnly",24,8)
-myregbank.reg[3][0].ExternalClear = True
-myregbank.reg[3][2].ExternalClear = True
-myregbank.reg[3][24].ExternalClear = True
-
-myregbank.add(4,"diverse2")
-myregbank.reg[4].add("div2w2clr","Write2Clear",0,16)
-myregbank.reg[4][0].ExternalClear = True
-
-print(myregbank.Entity.port.code())
-
-S_AXI_ARESETN = ResetSignal(0, active=0, isasync=True)
-S_AXI_ACLK  = Signal(bool(0))
-axi_awready = Signal(bool(0))
-aw_en = Signal(bool(0));
-S_AXI_AWVALID = Signal(bool(0))
-axi_bvalid = Signal(bool(0))
-S_AXI_WVALID = Signal(bool(0))
-S_AXI_BREADY = Signal(bool(0))
-axi_bvalid = Signal(bool(0))
-S_AXI_AWVALID = Signal(bool(0))
-axi_wready = Signal(bool(0))
-duff = Signal(bool(0))
-axi_awaddr = Signal(myhdl.intbv(0)[32:])
-S_AXI_AWADDR = Signal(myhdl.intbv(0)[32:])
-regwrite_en = Signal(bool(0))
 
 
 
 
-#inc_1 = inc(S_AXI_ACLK,S_AXI_ARESETN)
-#inc_1.convert(hdl='VHDL')
-toVHDL = myhdl.toVHDL
-toVHDL(inc(S_AXI_ACLK,S_AXI_ARESETN))
+if __name__ == '__main__':
 
-#Without using the "VHDL FILE"
-# def regbank_create(name,qty,size):
-#     Entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", addr_witdh)
-#     Entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", data_witdh)
-#     #entity - port
+    #first we declare a register bank.
+    #It is a 32 bit register with 8 possible positions.
+    #we named the architecture "RTL".
+    myregbank = RegisterBank("myregbank","rtl",32,8)
 
-#
-#     #adds custom code not provided by lib.
-#     regbank.architecture.declaration_code("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);\r\n")
-#
-#     regbank.architecture.signal.add("axi_awaddr", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-#     regbank.architecture.signal.add("axi_awready", "std_logic")
-#     regbank.architecture.signal.add("axi_wready", "std_logic")
-#     regbank.architecture.signal.add("axi_bresp", "std_logic_vector(1 downto 0)")
-#     regbank.architecture.signal.add("axi_bvalid", "std_logic")
-#     regbank.architecture.signal.add("axi_araddr", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-#     regbank.architecture.signal.add("axi_arready", "std_logic")
-#     regbank.architecture.signal.add("axi_rdata", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
-#     regbank.architecture.signal.add("axi_rresp", "std_logic_vector(1 downto 0)")
-#     regbank.architecture.signal.add("axi_rvalid", "std_logic")
-#
-#     regbank.architecture.constant.add("slv_reg_write", "reg_t", "(others=>(others=>'0'))")
-#     regbank.architecture.constant.add("slv_reg_read", "reg_t", "(others=>(others=>'0'))")
-#     regbank.architecture.constant.add("write_vec", "reg_t", "(others=>(others=>'0'))")
-#     regbank.architecture.constant.add("read_fec", "reg_t", "(others=>(others=>'0'))")
-#
-#     regbank.architecture.body_code = "  --Test adding custom body code.\r\n"
-#
-#     return regbank
-#
-# regbank = regbank_create("test_axim_regbank",4,32)
-# print Library.code()
+    #this is an axample of a read only register for ID, Golden number, Inputs
+    #we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
+    #myregbank.add(REG_ADDRESS,"golden")
+    #myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)
+    myregbank.add(0,"golden")
+    myregbank.reg[0].add("golden","ReadOnly",0,32)
+    #this is an example for a read/write generic register.
+    myregbank.add(1,"myReadWrite1")
+    myregbank.reg[1].add("myReadWrite1","ReadWrite",0,32)
+    #this is an example for a read/write generic register with external clear.
+    myregbank.add(2,"myReadWrite1")
+    myregbank.reg[2].add("myReadWrite1","ReadWrite",0,32)
+    myregbank.reg[2].ExternalClear = True
+    #this is an example of a write to clear register
+    myregbank.add(2,"MyWriteToClear")
+    myregbank.reg[2].add("MyWriteToClear","Write2Clear",0,32)
+    #wee can use just a slice on any type. Lets create a slice.
+    #we will use 2 16bit register.
+    myregbank.add(3,"SlicedReg")
+    myregbank.reg[3].add("pulse","Write2Pulse",0,16)
+    myregbank.reg[3].add("pulse","Write2Pulse",16,16)
+
+    #And we can create a very mixed register:
+    #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
+    myregbank.add(4,"MixedRegister")
+    myregbank.reg[4].add("PulseBit","Write2Pulse",0,1)
+    myregbank.reg[4][0].ExternalClear = True #for example, we want to kill the pulse.
+    myregbank.reg[4].add("Write2ClearBit","Write2Clear",1,1)
+    myregbank.reg[4][1].ExternalClear = True #either my write or the external can clear it.
+    myregbank.reg[4].add("ReadOnlyBit","ReadOnly",2,1)
+    myregbank.reg[4][2].ExternalClear = True #I can force a '0' read.
+    myregbank.reg[4].add("DivByte1","Write2Clear",8,8)
+    myregbank.reg[4].add("DivByte2","ReadWrite",16,8)
+    myregbank.reg[4].add("DivByte3","ReadOnly",24,8)
+
+    print(myregbank.code())
+
+    myregbank.write_file()
+    print("-------------------------------------------------------------")
+    print("The example will be stored at ./output/myregbank.vhd")
