@@ -41,6 +41,7 @@ def DictCode(DictInput):
 
 class PackageObj:
     def __init__(self, name, *args):
+        self.source = "File Location Unknown."
         self.name = name
         if args:
             self.operator = args[0]
@@ -166,6 +167,44 @@ class GenericCodeBlock:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
         return hdl_code
 
+class ComponentObj:
+    def __init__(self, name):
+        self.name    = name
+        self.generic = GenericList()
+        self.port    = PortList()
+        self.filename = ""
+
+    def code(self):
+        hdl_code = indent(0) + ("component %s is\r\n" % self.name)
+        if (self.generic):
+            hdl_code = hdl_code + indent(1) + ("generic (\r\n")
+            hdl_code = hdl_code + self.generic.code()
+            hdl_code = hdl_code + indent(1) + (");\r\n")
+        else:
+            hdl_code = hdl_code + indent(1) + ("--generic (\r\n")
+            hdl_code = hdl_code + indent(2) + ("--generic_declaration_tag\r\n")
+            hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        if (self.port):
+            hdl_code = hdl_code + indent(1) + ("port (\r\n")
+            hdl_code = hdl_code + self.port.code()
+            hdl_code = hdl_code + indent(1) + (");\r\n")
+        else:
+            hdl_code = hdl_code + indent(1) + ("--port (\r\n")
+            hdl_code = hdl_code + indent(2) + ("--port_declaration_tag\r\n")
+            hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        hdl_code = hdl_code + indent(0) + ("end component;\r\n")
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+class ComponentList(dict):
+    def add(self,name):
+        self[name] = ComponentObj(name)
+    def code(self)
+        hdl_code = ""
+        for j in self.list:
+            hdl_code = hdl_code + self.list[j].code()
+        return hdl_code
+
 class Entity:
     def __init__(self, name):
         self.name    = name
@@ -196,10 +235,11 @@ class Entity:
 
 class Architecture:
     def __init__(self, name, entity_name):
-        self.name = name
+        self.Name = name
         self.EntityName = entity_name
         self.Signal = SignalList()
         self.Constant = ConstantList()
+        self.Component = ComponentList()
         self.Functions = ""
         self.Procedures = ""
         self.CustomTypes = GenericCodeBlock(1)
@@ -213,10 +253,13 @@ class Architecture:
 
     def code(self):
         hdl_code = ""
-        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.name, self.EntityName))
+        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.Name, self.EntityName))
         hdl_code = hdl_code + "\r\n"
         if (self.DeclarationHeader):
             hdl_code = hdl_code + self.DeclarationHeader.code()
+            hdl_code = hdl_code + "\r\n"
+        if (self.Component):
+            hdl_code = hdl_code + self.Component.code()
             hdl_code = hdl_code + "\r\n"
         if (self.Constant):
             hdl_code = hdl_code + self.Constant.code()
@@ -236,7 +279,7 @@ class Architecture:
         if (self.BodyCodeHeader):
             hdl_code = hdl_code + self.BodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
+        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.Name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
