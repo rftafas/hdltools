@@ -1,0 +1,9 @@
+[submodule "dependencies/stdexpert"]
+	path = dependencies/stdexpert
+	url = git@github.com:rftafas/stdexpert.git
+[submodule "dependencies/stdcores"]
+	path = dependencies/stdcores
+	url = git@github.com:rftafas/stdcores.git
+[submodule "dependencies/externals/vhdl-axis-uart"]
+	path = dependencies/externals/vhdl-axis-uart
+	url = git@github.com:fcayci/vhdl-axis-uart.git
