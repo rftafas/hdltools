@@ -9,7 +9,7 @@ library ieee;
 library stdblocks;
   use std_blocks.sync_lib.all;
 
-entity aligner2 is
+entity axis_aligner is
     generic (
       tdata_size     : integer := 8;
       tdest_size     : integer := 8;
@@ -18,40 +18,13 @@ entity aligner2 is
     port (
       clk_i       : in  std_logic;
       rst_i       : in  std_logic;
-        --AXIS Master Port 0
-      m0_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);
-      m0_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);
-      m0_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);
-      m0_tready_i   : in  std_logic;
-      m0_tvalid_o   : out std_logic;
-      m0_tlast_o    : out std_logic;
-      --AXIS Master Port 1
-      m1_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);
-      m1_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);
-      m1_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);
-      m1_tready_i   : in  std_logic;
-      m1_tvalid_o   : out std_logic;
-      m1_tlast_o    : out std_logic;
-        --AXIS Slave Port 0
-      s0_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);
-      s0_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);
-      s0_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);
-      s0_tready_o : out std_logic;
-      s0_tvalid_i : in  std_logic;
-      s0_tlast_i  : in  std_logic;
-      --AXIS Slave Port 1
-      s1_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);
-      s1_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);
-      s1_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);
-      s1_tready_o : out std_logic;
-      s1_tvalid_i : in  std_logic;
-      s1_tlast_i  : in  std_logic;
+      --python port code
     );
-end aligner2;
+end axis_aligner;
 
-architecture behavioral of aligner2 is
+architecture behavioral of axis_aligner is
 
-  constant number_ports : integer := 2;
+--python constant code
 
   constant all1_c : std_logic_vector(number_ports-1 downto 0) := (others=>'1');
 
@@ -77,40 +50,7 @@ architecture behavioral of aligner2 is
 
 begin
 
-  --Master Connections
-  --Master 0
-  m0_tvalid_o <= m_tvalid_s(0);
-  m0_tlast_o  <= m_tlast_s(0);
-  m_tready_s(0) <= m0_tready_i;
-  m0_tdata_o  <= m_tdata_s(0);
-  m0_tuser_o  <= m_tuser_s(0);
-  m0_tdest_o  <= m_tdest_s(0);
-  
-  --Master 1
-  m1_tvalid_o <= m_tvalid_s(1);
-  m1_tlast_o  <= m_tlast_s(1);
-  m_tready_s(1) <= m1_tready_i;
-  m1_tdata_o  <= m_tdata_s(1);
-  m1_tuser_o  <= m_tuser_s(1);
-  m1_tdest_o  <= m_tdest_s(1);
-  
-  --Slave Connections
-  --Slave 0
-  s_tvalid_s(0) <= s0_tvalid_i;
-  s_tlast_s(0)  <= s0_tlast_i;
-  s0_tready_o  <= s_tready_s(0);
-  s_tdata_s(0)  <= s0_tdata_i;
-  s_tuser_s(0)  <= s0_tuser_i;
-  s_tdest_s(0)  <= s0_tdest_i;
-  
-  --Slave 1
-  s_tvalid_s(1) <= s1_tvalid_i;
-  s_tlast_s(1)  <= s1_tlast_i;
-  s1_tready_o  <= s_tready_s(1);
-  s_tdata_s(1)  <= s1_tdata_i;
-  s_tuser_s(1)  <= s1_tuser_i;
-  s_tdest_s(1)  <= s1_tdest_i;
-  
+--python signal connections
 
 ----------------------------------------------------------------------------------------------------
 

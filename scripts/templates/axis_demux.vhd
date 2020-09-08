@@ -6,30 +6,22 @@
 library ieee;
   use ieee.std_logic_1164.all;
   use ieee.numeric_std.all;
+library expert;
+  use expert.std_logic_expert.all;
 
-entity broadcast2 is
+entity axis_demux is
     generic (
       tdata_size   : integer := 8;
       tdest_size   : integer := 8;
-      tuser_size   : integer := 8
+      tuser_size   : integer := 8;
+      select_auto  : boolean := false;
+      switch_tlast : boolean := false;
+      max_tx_size  : integer := 10
     );
     port (
       clk_i       : in  std_logic;
       rst_i       : in  std_logic;
-      --AXIS Master Port 0
-      m0_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);
-      m0_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);
-      m0_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);
-      m0_tready_i   : in  std_logic;
-      m0_tvalid_o   : out std_logic;
-      m0_tlast_o    : out std_logic;
-      --AXIS Master Port 1
-      m1_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);
-      m1_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);
-      m1_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);
-      m1_tready_i   : in  std_logic;
-      m1_tvalid_o   : out std_logic;
-      m1_tlast_o    : out std_logic;
+      --python port code
       --AXIS Slave Port
       s_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);
       s_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);
@@ -38,11 +30,11 @@ entity broadcast2 is
       s_tvalid_i : in  std_logic;
       s_tlast_i  : in  std_logic
     );
-end broadcast2;
+end axis_demux;
 
-architecture behavioral of broadcast2 is
+architecture behavioral of axis_demux is
 
-  constant number_masters : integer := 2;
+--python constant code
 
   constant all1_c : std_logic_vector(number_masters-1 downto 0) := (others=>'1');
 
@@ -60,33 +52,16 @@ architecture behavioral of broadcast2 is
 
 begin
 
-  --Master Connections
-  --Master 0
-  m0_tvalid_o <= m_tvalid_s(0);
-  m0_tlast_o  <= m_tlast_s(0);
-  m_tready_s(0) <= m0_tready_i;
-  m0_tdata_o  <= m_tdata_s(0);
-  m0_tuser_o  <= m_tuser_s(0);
-  m0_tdest_o  <= m_tdest_s(0);
-  
-  --Master 1
-  m1_tvalid_o <= m_tvalid_s(1);
-  m1_tlast_o  <= m_tlast_s(1);
-  m_tready_s(1) <= m1_tready_i;
-  m1_tdata_o  <= m_tdata_s(1);
-  m1_tuser_o  <= m_tuser_s(1);
-  m1_tdest_o  <= m_tdest_s(1);
-  
+--array connections
 
   out_gen : for j in number_masters-1 downto 0 generate
-    m_tdata_s(j) <= s_tdata_i;
-    m_tuser_s(j) <= s_tuser_i;
-    m_tdest_s(j) <= s_tdest_i;
-    m_tvalid_s(j) <= s_tvalid_i;
-    m_tlast_s(j)  <= s_tlast_i;
+    m_tdata_s(j)  <= s_tdata_i;--  when to_integer(s_tdest_i) = j else (others=>'0');
+    m_tuser_s(j)  <= s_tuser_i;--  when to_integer(s_tdest_i) = j else (others=>'0');
+    m_tdest_s(j)  <= s_tdest_i;--  when to_integer(s_tdest_i) = j else (others=>'0');
+    m_tlast_s(j)  <= s_tlast_i;--  when to_integer(s_tdest_i) = j else '0';
+    m_tvalid_s(j) <= s_tvalid_i;-- when to_integer(s_tdest_i) = j else '0';
   end generate;
 
-  --if every master port have a valid data, we present valid data. Same for tlast.
-  s_tready_o <= '1' when m_tready_s = all1_c else '0';
+  s_tready_o <= m_tready_s(to_integer(s_tdest_i));
 
 end behavioral;

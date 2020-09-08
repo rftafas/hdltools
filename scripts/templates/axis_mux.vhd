@@ -7,7 +7,7 @@ library ieee;
   use ieee.std_logic_1164.all;
   use ieee.numeric_std.all;
 
-entity intercon2_mux is
+entity axis_mux is
     generic (
       tdata_size   : integer := 8;
       tdest_size   : integer := 8;
@@ -22,20 +22,7 @@ entity intercon2_mux is
       --general
       clk_i       : in  std_logic;
       rst_i       : in  std_logic;
-      --AXIS Slave Port 0
-      s0_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);
-      s0_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);
-      s0_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);
-      s0_tready_o : out std_logic;
-      s0_tvalid_i : in  std_logic;
-      s0_tlast_i  : in  std_logic;
-      --AXIS Slave Port 1
-      s1_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);
-      s1_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);
-      s1_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);
-      s1_tready_o : out std_logic;
-      s1_tvalid_i : in  std_logic;
-      s1_tlast_i  : in  std_logic;
+      --python port code
       --AXIS Master port
       m_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);
       m_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);
@@ -44,11 +31,11 @@ entity intercon2_mux is
       m_tvalid_o   : out std_logic;
       m_tlast_o    : out std_logic
     );
-end intercon2_mux;
+end axis_mux;
 
-architecture behavioral of intercon2_mux is
+architecture behavioral of axis_mux is
 
-  constant number_ports : integer := 2;
+  --python constant code
 
   component priority_engine is
     generic (
@@ -84,18 +71,7 @@ architecture behavioral of intercon2_mux is
 begin
 
   --slave connections
-  s_tvalid_s(0) <= s0_tvalid_i;
-  s_tvalid_s(1) <= s1_tvalid_i;
-
-  s_tlast_s(0)  <= s0_tlast_i;
-  s_tlast_s(1)  <= s1_tlast_i;
-
-  axi_tdata_s(0) <= s0_tdata_i;
-  axi_tuser_s(0) <= s0_tuser_i;
-  axi_tdest_s(0) <= s0_tdest_i;
-  axi_tdata_s(1) <= s1_tdata_i;
-  axi_tuser_s(1) <= s1_tuser_i;
-  axi_tdest_s(1) <= s1_tdest_i;
+  --array connections
 
   --output selection
   m_tdata_o  <= axi_tdata_s(index_s);
@@ -124,8 +100,7 @@ begin
     end if;
   end process;
 
-  s0_tready_o   <= s_tready_s(0) and m_tready_i;
-  s1_tready_o   <= s_tready_s(1) and m_tready_i;
+--ready connections
 
   priority_engine_i : priority_engine
     generic map (

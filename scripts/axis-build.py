@@ -1,377 +1,285 @@
 import sys
 import os
-import vhdl_gen as vhdl
-import math
 
 tabsize = 2
-RegisterTypeSet = {"Custom", "ReadWrite", "Write2Clear", "Write2Pulse"}
 
-indent = vhdl.indent
+def indent(value):
+    txt = ""
+    for j in range(tabsize * value):
+        txt = txt + " "
+    return txt;
 
-class AXISblock(BasicVHDL):
-    def __init__(self, name, architecture_name):
-        vhdl.BasicVHDL.__init__(self, entity_name, architecture_name)
+def create_axis_port( port_name, type, number, indsize):
+    code = ""
+    if ("master" in type):
+        for j in range(number):
+            code = code + indent(indsize) + ("--AXIS Master Port %d\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tready_i   : in  std_logic;\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tvalid_o   : out std_logic;\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tlast_o    : out std_logic;\r\n" % j)
+    else :
+        for j in range(number):
+            code = code + indent(indsize) + ("--AXIS Slave Port %d\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tready_o : out std_logic;\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tvalid_i : in  std_logic;\r\n" % j)
+            code = code + indent(indsize) + port_name + ("%d_tlast_i  : in  std_logic;\r\n" % j)
+    return code
 
-    def create_axis_port( self, prefix, type):
-        if ("master" in type):
-            self.Entity.port.add("%d_tdata_o"  % prefix, "out", "std_logic_vector(tdata_size-1 downto 0)")
-            self.Entity.port.add("%d_tuser_o"  % prefix, "out", "std_logic_vector(tuser_size-1 downto 0)")
-            self.Entity.port.add("%d_tdest_o"  % prefix, "out", "std_logic_vector(tdest_size-1 downto 0)")
-            self.Entity.port.add("%d_tready_i" % prefix, "in", "std_logic")
-            self.Entity.port.add("%d_tvalid_o" % prefix, "out", "std_logic")
-            self.Entity.port.add("%d_tlast_o"  % prefix, "out", "std_logic")
-        else :
-            self.Entity.port.add("%d_tdata_i"  % prefix, "in", "std_logic_vector(tdata_size-1 downto 0)")
-            self.Entity.port.add("%d_tuser_i"  % prefix, "in", "std_logic_vector(tuser_size-1 downto 0)")
-            self.Entity.port.add("%d_tdest_i"  % prefix, "in", "std_logic_vector(tdest_size-1 downto 0)")
-            self.Entity.port.add("%d_tready_o" % prefix, "out", "std_logic")
-            self.Entity.port.add("%d_tvalid_i" % prefix, "in", "std_logic")
-            self.Entity.port.add("%d_tlast_i"  % prefix, "in", "std_logic")
+def create_axis_signal( signal_name, size, indsize):
+    code = ""
+    code = code + indent(indsize) + ("signal %s_tdata_s  :  axi_tdata_array(%s-1 downto 0);\r\n" % (signal_name,size))
+    code = code + indent(indsize) + ("signal %s_tuser_s  :  axi_tuser_array(%s-1 downto 0);\r\n" % (signal_name,size))
+    code = code + indent(indsize) + ("signal %s_tdest_s  :  axi_tdest_array(%s-1 downto 0);\r\n" % (signal_name,size))
+    code = code + indent(indsize) + ("signal %s_tvalid_s : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
+    code = code + indent(indsize) + ("signal %s_tlast_s  : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
+    code = code + indent(indsize) + ("signal %s_tready_s : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
+    return code
 
-    def create_axis_signal( self, signal_name, size):
-        self.Architecture.Signal.add("%s_tdata_s"  % signal_name,  "axi_tdata_array(%s-1 downto 0)" % size )
-        self.Architecture.Signal.add("%s_tuser_s"  % signal_name,  "axi_tdata_array(%s-1 downto 0)" % size )
-        self.Architecture.Signal.add("%s_tdest_s"  % signal_name,  "axi_tdata_array(%s-1 downto 0)" % size )
-        self.Architecture.Signal.add("%s_tvalid_s" % signal_name, "std_logic_vector(%s-1 downto 0)" % size )
-        self.Architecture.Signal.add("%s_tlast_s"  % signal_name, "std_logic_vector(%s-1 downto 0)" % size )
-        self.Architecture.Signal.add("%s_tready_s" % signal_name, "std_logic_vector(%s-1 downto 0)" % size )
+def create_port_connection( port_name, type, number_elements, indsize):
+    code = ""
+    if ("slave" in type):
+        code = code + indent(indsize) + ("--Slave Connections\r\n")
+        for j in range(number_elements):
+            code = code + indent(indsize) + ("--Slave %d\r\n" % j)
+            code = code + indent(indsize) + ("s_tvalid_s(%d) <= %s%d_tvalid_i;\r\n"   % (j, port_name, j))
+            code = code + indent(indsize) + ("s_tlast_s(%d)  <= %s%d_tlast_i;\r\n"    % (j, port_name, j))
+            code = code + indent(indsize) + ("%s%d_tready_o  <= s_tready_s(%d);\r\n" % (port_name, j, j))
+            code = code + indent(indsize) + ("s_tdata_s(%d)  <= %s%d_tdata_i;\r\n"    % (j, port_name, j))
+            code = code + indent(indsize) + ("s_tuser_s(%d)  <= %s%d_tuser_i;\r\n"    % (j, port_name, j))
+            code = code + indent(indsize) + ("s_tdest_s(%d)  <= %s%d_tdest_i;\r\n"    % (j, port_name, j))
+            code = code + indent(indsize) + ("\r\n")
+    else:
+        code = code + indent(indsize)+("--Master Connections\r\n")
+        for j in range(number_elements):
+            code = code + indent(indsize) + ("--Master %d\r\n" % j)
+            code = code + indent(indsize) + ("%s%d_tvalid_o <= m_tvalid_s(%d);\r\n" % (port_name, j, j))
+            code = code + indent(indsize) + ("%s%d_tlast_o  <= m_tlast_s(%d);\r\n"  % (port_name, j, j))
+            code = code + indent(indsize) + ("m_tready_s(%d) <= %s%d_tready_i;\r\n"   % (j, port_name, j))
+            code = code + indent(indsize) + ("%s%d_tdata_o  <= m_tdata_s(%d);\r\n"  % (port_name, j, j))
+            code = code + indent(indsize) + ("%s%d_tuser_o  <= m_tuser_s(%d);\r\n"  % (port_name, j, j))
+            code = code + indent(indsize) + ("%s%d_tdest_o  <= m_tdest_s(%d);\r\n"  % (port_name, j, j))
+            code = code + indent(indsize) + ("\r\n")
+    return code
 
-    def create_port_connection( self, prefix, type):
-        if ("slave" in type):
-            self.Architecture.BodyCodeHeader("--Slave %s\r\n" % prefix)
-            self.Architecture.BodyCodeHeader("s_tvalid_s(%d) <= %s_tvalid_i;\r\n"   % (j, prefix))
-            self.Architecture.BodyCodeHeader("s_tlast_s(%d)  <= %s_tlast_i;\r\n"    % (j, prefix))
-            self.Architecture.BodyCodeHeader("%s_tready_o  <= s_tready_s(%d);\r\n"  % (prefix, j))
-            self.Architecture.BodyCodeHeader("s_tdata_s(%d)  <= %s_tdata_i;\r\n"    % (j, prefix))
-            self.Architecture.BodyCodeHeader("s_tuser_s(%d)  <= %s_tuser_i;\r\n"    % (j, prefix))
-            self.Architecture.BodyCodeHeader("s_tdest_s(%d)  <= %s_tdest_i;\r\n"    % (j, prefix))
-            self.Architecture.BodyCodeHeader("\r\n")
+def create_instance_connection( port_name, signal_name, signal_sufix, type, indsize):
+    code = ""
+    if ("slave" in type):
+        code = code + indent(indsize) + ("--Slave %s\r\n" % port_name)
+        code = code + indent(indsize) + ("%s_tvalid_i => %s_tvalid_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tlast_i  =>  %s_tlast_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tready_o => %s_tready_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tdata_i  =>  %s_tdata_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tuser_i  =>  %s_tuser_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tdest_i  =>  %s_tdest_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("\r\n")
+    else:
+        code = code + indent(indsize) + ("--Master %s\r\n" % port_name)
+        code = code + indent(indsize) + ("%s_tvalid_o => %s_tvalid_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tlast_o  =>  %s_tlast_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tready_i => %s_tready_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tdata_o  =>  %s_tdata_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tuser_o  =>  %s_tuser_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("%s_tdest_o  =>  %s_tdest_s%s,\r\n" % (port_name, signal_name, signal_sufix))
+        code = code + indent(indsize) + ("\r\n")
+    return code
+
+def create_signal_connection( signala_name, signala_sufix, signalb_name, signalb_sufix, indsize):
+    code = ""
+    code = code + indent(indsize) + ("--Connext %s to %s\r\n" % (signala_name,signalb_name))
+    code = code + indent(indsize) + ("%s_tvalid_s%s <= %s_tvalid_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
+    code = code + indent(indsize) + ("%s_tlast_s%s  <=  %s_tlast_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
+    code = code + indent(indsize) + ("%s_tready_s%s <= %s_tready_s%s;\r\n" % (signalb_name, signalb_sufix, signala_name, signala_sufix))
+    code = code + indent(indsize) + ("%s_tdata_s%s  <=  %s_tdata_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
+    code = code + indent(indsize) + ("%s_tuser_s%s  <=  %s_tuser_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
+    code = code + indent(indsize) + ("%s_tdest_s%s  <=  %s_tdest_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
+    code = code + indent(indsize) + ("\r\n")
+    return code
+
+def axi_custom( entity_name, number_slaves, number_masters):
+    #check for axis_concat existance
+    output_file_name = "output/"+entity_name+".vhd"
+    output_file = open(output_file_name,"w+")
+
+    concat_source = open("templates/axis_custom.vhd","r")
+    code_lines = concat_source.readlines()
+
+    for line in code_lines:
+        if ("entity axi_custom is" in line):
+            output_file.write("entity %s is\r\n" % entity_name)
+        elif ("end axi_custom;" in line):
+            output_file.write("end %s;\r\n" % entity_name)
+        elif ("architecture" in line):
+            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
+        elif ("--python port code" in line):
+            output_file.write(create_axis_port("s","slave",number_slaves,3))
+            output_file.write(create_axis_port("m","master",number_masters,3))
+        elif ("--python constant code" in line):
+            output_file.write(indent(1)+"constant number_slaves  : integer := %d;\r\n" % number_slaves)
+            output_file.write(indent(1)+"constant number_masters : integer := %d;\r\n" % number_masters)
+        elif ("--python signal connections" in line):
+            output_file.write(create_port_connection("m","master",number_masters,1))
+            output_file.write(create_port_connection("s","slaves",number_slaves,1))
         else:
-            self.Architecture.BodyCodeHeader("--Master %d\r\n" % j)
-            self.Architecture.BodyCodeHeader("%s_tvalid_o <= m_tvalid_s(%d);\r\n" % (prefix, j))
-            self.Architecture.BodyCodeHeader("%s_tlast_o  <= m_tlast_s(%d);\r\n"  % (prefix, j))
-            self.Architecture.BodyCodeHeader("m_tready_s(%d) <= %s_tready_i;\r\n" % (j, prefix))
-            self.Architecture.BodyCodeHeader("%s_tdata_o  <= m_tdata_s(%d);\r\n"  % (prefix, j))
-            self.Architecture.BodyCodeHeader("%s_tuser_o  <= m_tuser_s(%d);\r\n"  % (prefix, j))
-            self.Architecture.BodyCodeHeader("%s_tdest_o  <= m_tdest_s(%d);\r\n"  % (prefix, j))
-            self.Architecture.BodyCodeHeader("\r\n")
+            output_file.write(line)
+    return True;
 
+def axi_concat( entity_name, number_elements):
+    #check for axis_concat existance
+    output_file_name = "output/"+entity_name+".vhd"
+    output_file = open(output_file_name,"w+")
 
-    def create_signal_connection( signal_prefix, signal_sufix, signalb_name, signalb_sufix, indsize):
-        self.Architecture.BodyCodeHeader("--Connect %s to %s\r\n" % (signala_name,signalb_name))
-        self.Architecture.BodyCodeHeader("%s_tvalid_s%s <= %s_tvalid_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-        self.Architecture.BodyCodeHeader("%s_tlast_s%s  <=  %s_tlast_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-        self.Architecture.BodyCodeHeader("%s_tready_s%s <= %s_tready_s%s;\r\n" % (signalb_name, signalb_sufix, signala_name, signala_sufix))
-        self.Architecture.BodyCodeHeader("%s_tdata_s%s  <=  %s_tdata_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-        self.Architecture.BodyCodeHeader("%s_tuser_s%s  <=  %s_tuser_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-        self.Architecture.BodyCodeHeader("%s_tdest_s%s  <=  %s_tdest_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-        self.Architecture.BodyCodeHeader("\r\n")
+    concat_source = open("templates/axis_concat.vhd","r")
+    code_lines = concat_source.readlines()
 
-class AXISCustom(AXISblock):
-    def __init__(self, name, slavePorts, masterPorts, *args):
-        vhdl.AXISblock.__init__(self, entity_name, "AXIbehavioral")
-        self.slavePorts = slavePorts
-        self.masterPorts = masterPorts
-        self.tdata_size = args[0]
-        self.tuser_size = args[1]
-        self.tdest_size = args[2]
+    for line in code_lines:
+        if ("entity axis_concat is" in line):
+            output_file.write("entity %s is\r\n" % entity_name)
+        elif ("end axis_concat;" in line):
+            output_file.write("end %s;\r\n" % entity_name)
+        elif ("architecture" in line):
+            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
+        elif ("--python port code" in line):
+            output_file.write(create_axis_port("s","slave",number_elements,3))
+            output_file.write(indent(3)+"--AXIS Master Port\r\n")
+            output_file.write(indent(3)+"m_tdata_o    : out std_logic_vector(%d*tdata_size-1 downto 0);\r\n" % number_elements)
+            output_file.write(indent(3)+"m_tuser_o    : out std_logic_vector(%d*tuser_size-1 downto 0);\r\n" % number_elements)
+            output_file.write(indent(3)+"m_tdest_o    : out std_logic_vector(%d*tdest_size-1 downto 0);\r\n" % number_elements)
+        elif ("--python constant code" in line):
+            output_file.write(indent(1)+"constant number_ports : integer := %d;\r\n" % number_elements)
+        elif ("--python signal connections" in line):
+            for j in range(number_elements):
+                output_file.write(indent(2)+"s_tvalid_s(%d) <= s%d_tvalid_i;\r\n" % (j, j))
 
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
-        self.Entity.generic.add("tdata_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tuser_size", "integer", str(self.tuser_size))
-        self.Entity.generic.add("tdest_size", "integer", str(self.tdest_size))
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(2)+"s_tlast_s(%d)  <= s%d_tlast_i;\r\n" % (j, j))
 
-        for j in range(self.slavePorts):
-            prefix = "s%d" % j
-            self.create_axis_port(prefix,"slave")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(2)+"s%d_tready_o   <= m_tready_i;\r\n" % j)
 
-        for j in range(self.masterPorts):
-            prefix = "m%d" % j
-            self.create_axis_port(prefix,"master")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(2)+"axi_tdata_s(%d) <= s%d_tdata_i;\r\n" % (j,j))
+                output_file.write(indent(2)+"axi_tuser_s(%d) <= s%d_tuser_i;\r\n" % (j,j))
+                output_file.write(indent(2)+"axi_tdest_s(%d) <= s%d_tdest_i;\r\n" % (j,j))
+        else:
+            output_file.write(line)
+    return True;
 
-class AXIconcat(AXISblock):
-    def __init__(self, name, slavePorts, *args):
-        vhdl.AXISblock.__init__(self, entity_name, "AXIbehavioral")
-        self.slavePorts = slavePorts
-        self.tdata_size = args[0]
-        self.tuser_size = args[1]
-        self.tdest_size = args[2]
+def axis_mux ( entity_name, number_elements):
+    #check for axis_concat existance
+    output_file_name = "output/"+entity_name+".vhd"
+    output_file = open(output_file_name,"w+")
 
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
-        self.Entity.generic.add("tdata_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tuser_size", "integer", str(self.tuser_size))
-        self.Entity.generic.add("tdest_size", "integer", str(self.tdest_size))
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
+    concat_source = open("templates/axis_mux.vhd","r")
+    code_lines = concat_source.readlines()
 
-        self.Entity.port.add("m_tdata_o"  % prefix, "out", "std_logic_vector(%d*tdata_size-1 downto 0)" % slavePorts)
-        self.Entity.port.add("m_tuser_o"  % prefix, "out", "std_logic_vector(%d*tuser_size-1 downto 0)" % slavePorts)
-        self.Entity.port.add("m_tdest_o"  % prefix, "out", "std_logic_vector(%d*tdest_size-1 downto 0)" % slavePorts)
-        self.Entity.port.add("m_tready_i" % prefix, "in", "std_logic")
-        self.Entity.port.add("m_tvalid_o" % prefix, "out", "std_logic")
-        self.Entity.port.add("m_tlast_o"  % prefix, "out", "std_logic")
+    for line in code_lines:
+        if ("entity axis_mux is" in line):
+            output_file.write("entity %s is\r\n" % entity_name)
+        elif ("end axis_mux;" in line):
+            output_file.write("end %s;\r\n" % entity_name)
+        elif ("architecture" in line):
+            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
+        elif ("--python port code" in line):
+            output_file.write(create_axis_port("s","slave",number_elements,3))
+        elif ("--python constant code" in line):
+            output_file.write("  constant number_ports : integer := %d;\r\n" % number_elements)
+        elif ("--array connections" in line):
+            for j in range(number_elements):
+                output_file.write(indent(1)+"s_tvalid_s(%d) <= s%d_tvalid_i;\r\n" % (j, j))
 
-        self.Architecture.Constant.add("all1_c", "std_logic_vector(%s downto 0)" % self.slavePorts-1, "(others=>'1')")
-        self.Architecture.Signal.add("s_tvalid_s", "std_logic_vector(%s downto 0)" % self.slavePorts-1, "(others=>'1')")
-        self.Architecture.Signal.add("s_tlast_s", "std_logic_vector(%s downto 0)" % self.slavePorts-1, "(others=>'1')")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(1)+"s_tlast_s(%d)  <= s%d_tlast_i;\r\n" % (j, j))
 
-        for j in range(self.slavePorts):
-            prefix = "s%d" % j
-            self.create_axis_port(prefix,"slave")
-            self.Architecture.BodyCodeHeader.add("m_tdata_o(%d*tdata_size-1 downto %d*tdata_size)  <= s%d_tdata_i;" % (j+1,j,j))
-            self.Architecture.BodyCodeHeader.add("m_tuser_o(%d*tuser_size-1 downto %d*tuser_size)  <= s%d_tuser_i;" % (j+1,j,j))
-            self.Architecture.BodyCodeHeader.add("m_tdest_o(%d*tdest_size-1 downto %d*tdest_size)  <= s%d_tdest_i;" % (j+1,j,j))
-            self.Architecture.BodyCodeHeader.add("s_tvalid_s(%d) <= s%d_tvalid_i;" % j)
-            self.Architecture.BodyCodeHeader.add("s_tlast_s(%d)  <=  s%d_tlast_i;" % j)
-            self.Architecture.BodyCodeHeader.add("s%d_tready_o  <= m_tready_i;")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(1)+"axi_tdata_s(%d) <= s%d_tdata_i;\r\n" % (j,j))
+                output_file.write(indent(1)+"axi_tuser_s(%d) <= s%d_tuser_i;\r\n" % (j,j))
+                output_file.write(indent(1)+"axi_tdest_s(%d) <= s%d_tdest_i;\r\n" % (j,j))
 
-        self.Architecture.BodyCodeFooter.add("--if every master port have a valid data, we present valid data. Same for tlast.")
-        self.Architecture.BodyCodeFooter.add("m_tvalid_o <= '1' when s_tvalid_s = all1_c else '0';")
-        self.Architecture.BodyCodeFooter.add("m_tlast_o  <= '1' when  s_tlast_s = all1_c else '0';")
+        elif ("--ready connections" in line):
+            for j in range(number_elements):
+                output_file.write(indent(1)+"s%d_tready_o   <= s_tready_s(%d) and m_tready_i;\r\n" % (j,j))
 
-class AXImux(AXISblock):
-    def __init__(self, name, slavePorts, *args):
-        vhdl.AXISblock.__init__(self, entity_name, "AXIbehavioral")
-        self.SlavePortsNumber = slavePorts
-        self.tdata_size = args[0]
-        self.tuser_size = args[1]
-        self.tdest_size = args[2]
-        self.select_auto  = True
-        self.switch_tlast = True
-        self.interleaving = True
-        self.max_tx_size  = 10;
-        self.mode         = 10
+        else:
+            output_file.write(line)
+    return True;
 
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
+def axis_demux ( entity_name, number_elements):
+    #check for axis_concat existance
+    output_file_name = "output/"+entity_name+".vhd"
+    output_file = open(output_file_name,"w+")
 
-        self.Entity.generic.add("tdata_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tdest_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tuser_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("select_auto", "boolean", "true")
-        self.Entity.generic.add("switch_tlast", "boolean", "true")
-        self.Entity.generic.add("interleaving", "boolean", "true")
-        self.Entity.generic.add("max_tx_size", "integer", "10")
-        self.Entity.generic.add("mode", "integer", "10")
+    concat_source = open("templates/axis_demux.vhd","r")
+    code_lines = concat_source.readlines()
 
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
+    for line in code_lines:
+        if ("entity axis_demux is" in line):
+            output_file.write("entity %s is\r\n" % entity_name)
+        elif ("end axis_demux;" in line):
+            output_file.write("end %s;\r\n" % entity_name)
+        elif ("architecture" in line):
+            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
+        elif ("--python port code" in line):
+            output_file.write(create_axis_port("m","master",number_elements,3))
+        elif ("--python constant code" in line):
+            output_file.write("  constant number_masters : integer := %d;\r\n" % number_elements)
+        elif ("--array connections" in line):
+            output_file.write(create_port_connection("m","master",number_masters,1))
+        else:
+            output_file.write(line)
+    return True;
 
-        self.create_axis_port("m","master")
+def axis_aligner ( entity_name, number_elements):
+    #check for axis_concat existance
+    output_file_name = "output/"+entity_name+".vhd"
+    output_file = open(output_file_name,"w+")
 
-        for j in range(SlavePortsNumber):
-            self.create_axis_port("s%s" % str(j),"slave")
-            self.Architecture.BodyCodeHeader.add("s_tvalid_s(%d) <= s%d_tvalid_i;\r\n" % (j, j))
-            self.Architecture.BodyCodeHeader.add("s_tlast_s(%d)  <= s%d_tlast_i;\r\n" % (j, j))
-            self.Architecture.BodyCodeHeader.add("axi_tdata_s(%d) <= s%d_tdata_i;\r\n" % (j,j))
-            self.Architecture.BodyCodeHeader.add("axi_tuser_s(%d) <= s%d_tuser_i;\r\n" % (j,j))
-            self.Architecture.BodyCodeHeader.add("axi_tdest_s(%d) <= s%d_tdest_i;\r\n" % (j,j))
-            self.Architecture.BodyCodeHeader.add("s%d_tready_o   <= s_tready_s(%d) and m_tready_i;\r\n" % (j,j))
+    concat_source = open("templates/axis_aligner.vhd","r")
+    code_lines = concat_source.readlines()
 
-        self.Architecture.Component.add("priority_engine")
-        self.Architecture.Component["priority_engine"].geenric.add("n_elements","integer","8")
-        self.Architecture.Component["priority_engine"].generic.add("mode","integer","8")
-        self.Architecture.Component["priority_engine"].port.add("rst_i", "in",  "std_logic")
-        self.Architecture.Component["priority_engine"].port.add("clk_i", "in",  "std_logic")
-        self.Architecture.Component["priority_engine"].port.add("request_i", "in",  "std_logic_vector(n_elements-1 downto 0)")
-        self.Architecture.Component["priority_engine"].port.add("ack_i", "in",  "std_logic_vector(n_elements-1 downto 0)")
-        self.Architecture.Component["priority_engine"].port.add("grant_o", "out", "std_logic_vector(n_elements-1 downto 0)")
-        self.Architecture.Component["priority_engine"].port.add("index_o", "out", "natural")
+    for line in code_lines:
+        if ("entity axis_aligner is" in line):
+            output_file.write("entity %s is\r\n" % entity_name)
+        elif ("end axis_aligner;" in line):
+            output_file.write("end %s;\r\n" % entity_name)
+        elif ("architecture" in line):
+            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
+        elif ("--python port code" in line):
+            output_file.write(indent(1)+create_axis_port("m","master",number_elements,3))
+            output_file.write(indent(1)+create_axis_port("s","slave",number_elements,3))
+        elif ("--python constant code" in line):
+            output_file.write("  constant number_ports : integer := %d;\r\n" % number_elements)
+        elif ("--array connections" in line):
+            for j in range(number_elements):
+                output_file.write(indent(3)+"s_tvalid_s(%d) <= s%d_tvalid_i;\r\n" % (j, j))
 
-        self.Architecture.Constant.add("number_ports", "integer", "%d" % SlavePortsNumber)
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(3)+"s_tlast_s(%d)  <= s%d_tlast_i;\r\n" % (j, j))
 
-        self.Architecture.CustomTypes.add("type axi_tdata_array is array (number_ports-1 downto 0) of std_logic_vector(tdata_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tuser_array is array (number_ports-1 downto 0) of std_logic_vector(tuser_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tdest_array is array (number_ports-1 downto 0) of std_logic_vector(tdest_size-1 downto 0);")
+            output_file.write("\r\n")
+            for j in range(number_elements):
+                output_file.write(indent(3)+"axi_tdata_s(%d) <= s%d_tdata_i;\r\n" % (j,j))
+                output_file.write(indent(3)+"axi_tuser_s(%d) <= s%d_tuser_i;\r\n" % (j,j))
+                output_file.write(indent(3)+"axi_tdest_s(%d) <= s%d_tdest_i;\r\n" % (j,j))
 
-        self.Architecture.Signal.add("axi_tdata_s", "axi_tdata_array")
-        self.Architecture.Signal.add("axi_tuser_s", "axi_tuser_array")
-        self.Architecture.Signal.add("axi_tdest_s", "axi_tdest_array")
-        self.Architecture.Signal.add("tx_count_s", "integer")
-        self.Architecture.Signal.add("index_s", "natural range 0 to number_ports-1")
-        self.Architecture.Signal.add("ack_s", "std_logic_vector(number_ports-1 downto 0)")
+        elif ("--python signal connections" in line):
+            output_file.write(create_port_connection("m","master",number_elements,1))
+            output_file.write(create_port_connection("s","slaves",number_elements,1))
 
-        self.Architecture.BodyCodeFooter.add("m_tdata_o  <= axi_tdata_s(index_s);")
-        self.Architecture.BodyCodeFooter.add("m_tdest_o  <= axi_tdest_s(index_s);")
-        self.Architecture.BodyCodeFooter.add("m_tuser_o  <= axi_tuser_s(index_s);")
-        self.Architecture.BodyCodeFooter.add("m_tvalid_o <= s_tvalid_s(index_s);")
-        self.Architecture.BodyCodeFooter.add("m_tlast_o  <= s_tlast_s(index_s);")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("process(all)")
-        self.Architecture.BodyCodeFooter.add("begin")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"if rst_i = '1' then")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"tx_count_s <= 0;")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"elsif rising_edge(clk_i) then")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"if max_tx_size = 0 then")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"tx_count_s <= 1;")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"elsif (s_tready_s(index_s) and s_tvalid_s(index_s)) = '1' then")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"if ack_s(index_s) = '1' then")
-        self.Architecture.BodyCodeFooter.add(indent(4)+"tx_count_s <= 0;")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"elsif tx_count_s = max_tx_size-1 then")
-        self.Architecture.BodyCodeFooter.add(indent(4)+"tx_count_s <= 0;")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"else")
-        self.Architecture.BodyCodeFooter.add(indent(4)+"tx_count_s <= tx_count_s + 1;")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"end if;")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"end if;")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"end if;")
-        self.Architecture.BodyCodeFooter.add("end process;")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("priority_engine_i : priority_engine")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"generic map (")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"n_elements => number_ports,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"mode       => mode")
-        self.Architecture.BodyCodeFooter.add(indent(1)+")")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"port map (")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"clk_i     => clk_i,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"rst_i     => rst_i,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"request_i => s_tvalid_s,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"ack_i     => ack_s,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"grant_o   => s_tready_s,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"index_o   => index_s")
-        self.Architecture.BodyCodeFooter.add(indent(1)+");")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("ack_gen : for j in number_ports-1 downto 0 generate")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"ack_s(j) <= s_tlast_s(j) when switch_tlast               else")
-        self.Architecture.BodyCodeFooter.add(indent(7)+"'1'          when tx_count_s = max_tx_size-1 else")
-        self.Architecture.BodyCodeFooter.add(indent(7)+"'1'          when interleaving               else")
-        self.Architecture.BodyCodeFooter.add(indent(7)+"'0';")
-        self.Architecture.BodyCodeFooter.add("end generate;")
-
-class AXIdemux(AXISblock):
-    def __init__(self, name, MasterPortsNumber, *args):
-        vhdl.AXISblock.__init__(self, entity_name, "AXIbehavioral")
-        self.MasterPortsNumber = MasterPortsNumber
-        self.tdata_size = args[0]
-        self.tuser_size = args[1]
-        self.tdest_size = args[2]
-        self.select_auto  = True
-        self.switch_tlast = True
-        self.select_auto  = True
-        self.max_tx_size  = 10;
-
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
-
-        self.Entity.generic.add("tdata_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tdest_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tuser_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("select_auto", "boolean", "true")
-        self.Entity.generic.add("switch_tlast", "boolean", "true")
-        self.Entity.generic.add("max_tx_size", "integer", "10")
-
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
-
-        self.create_axis_port("s","slave")
-
-        for j in range(MasterPortsNumber):
-            self.create_axis_port("m%s" % str(j),"master")
-            self.create_port_connection("m%s" % str(j),j,"master")
-
-        self.Architecture.Constant.add("number_ports", "integer", "%d" % MasterPortsNumber)
-
-        self.Architecture.CustomTypes.add("type axi_tdata_array is array (number_ports-1 downto 0) of std_logic_vector(tdata_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tuser_array is array (number_ports-1 downto 0) of std_logic_vector(tuser_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tdest_array is array (number_ports-1 downto 0) of std_logic_vector(tdest_size-1 downto 0);")
-
-        self.Architecture.Signal.add("axi_tdata_s", "axi_tdata_array")
-        self.Architecture.Signal.add("axi_tuser_s", "axi_tuser_array")
-        self.Architecture.Signal.add("axi_tdest_s", "axi_tdest_array")
-        self.Architecture.Signal.add("m_tvalid_s", "std_logic_vector(number_ports-1 downto 0)")
-        self.Architecture.Signal.add("m_tlast_s",  "std_logic_vector(number_ports-1 downto 0)")
-        self.Architecture.Signal.add("m_tready_s", "std_logic_vector(number_ports-1 downto 0)")
-
-        self.Architecture.BodyCodeFooter.add("out_gen : for j in number_masters-1 downto 0 generate")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"m_tdata_s(j)  <= s_tdata_i;--  when to_integer(s_tdest_i) = j else (others=>'0');")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"m_tuser_s(j)  <= s_tuser_i;--  when to_integer(s_tdest_i) = j else (others=>'0');")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"m_tdest_s(j)  <= s_tdest_i;--  when to_integer(s_tdest_i) = j else (others=>'0');")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"m_tlast_s(j)  <= s_tlast_i;--  when to_integer(s_tdest_i) = j else '0';")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"m_tvalid_s(j) <= s_tvalid_i;-- when to_integer(s_tdest_i) = j else '0';")
-        self.Architecture.BodyCodeFooter.add("end generate;")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("s_tready_o <= m_tready_s(to_integer(s_tdest_i));")
-
-class AXIaligner:
-    def __init__(self, entity_name, number_elements):
-        vhdl.AXISblock.__init__(self, entity_name, "AXIbehavioral")
-        self.PortsNumber = number_elements
-        self.tdata_size = args[0]
-        self.tuser_size = args[1]
-        self.tdest_size = args[2]
-
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
-
-        self.Entity.generic.add("tdata_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tdest_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("tuser_size", "integer", str(self.tdata_size))
-        self.Entity.generic.add("select_auto", "boolean", "true")
-        self.Entity.generic.add("switch_tlast", "boolean", "true")
-        self.Entity.generic.add("max_tx_size", "integer", "10")
-
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
-
-        for j in range(self.PortsNumber):
-            self.create_axis_port("s%s" % str(j),"slave")
-            self.create_axis_port("m%s" % str(j),"master")
-
-        self.Architecture.Constant.add("number_ports", "integer", "%d" % self.PortsNumber)
-        self.Architecture.Constant.add("all1_c", "std_logic_vector(number_ports-1 downto 0)", "(others=>'1')")
-
-        self.Architecture.CustomTypes.add("type axi_tdata_array is array (number_ports-1 downto 0) of std_logic_vector(tdata_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tuser_array is array (number_ports-1 downto 0) of std_logic_vector(tuser_size-1 downto 0);")
-        self.Architecture.CustomTypes.add("type axi_tdest_array is array (number_ports-1 downto 0) of std_logic_vector(tdest_size-1 downto 0);")
-
-        create_axis_signal("s", self.PortsNumber):
-        create_axis_signal("m", self.PortsNumber):
-
-        self.Architecture.Signal.add("ready_s", "std_logic_vector(number_ports-1 downto 0)")
-        self.Architecture.Signal.add("en_o_s", "std_logic_vector(number_ports-1 downto 0)")
-        self.Architecture.Signal.add("en_i_s", "std_logic_vector(number_ports-1 downto 0)")
-
-        self.Architecture.BodyCodeFooter.add("m_tdata_s <= s_tdata_s;")
-        self.Architecture.BodyCodeFooter.add("m_tdest_s <= s_tdest_s;")
-        self.Architecture.BodyCodeFooter.add("m_tuser_s <= s_tuser_s;")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("en_i_s     <= s_tvalid_s and ready_s;")
-        self.Architecture.BodyCodeFooter.add("s_tready_s <= en_o_s;")
-        self.Architecture.BodyCodeFooter.add("m_tvalid_s <= en_o_s;")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("pulse_align_i : pulse_align")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"generic map (")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"port_size => number_ports")
-        self.Architecture.BodyCodeFooter.add(indent(1)+")")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"port map (")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"rst_i  => rst_i,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"mclk_i => clk_i,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"en_i   => en_i_s,")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"en_o   => en_o_s")
-        self.Architecture.BodyCodeFooter.add(indent(1)+");")
-        self.Architecture.BodyCodeFooter.add("")
-        self.Architecture.BodyCodeFooter.add("ready_gen : for j in number_ports-1 downto 0 generate")
-        self.Architecture.BodyCodeFooter.add(indent(1)+"det_down_i : det_down")
-        self.Architecture.BodyCodeFooter.add(indent(2)+"port map (")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"rst_i  => rst_i,")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"mclk_i => clk_i,")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"din    => m_tready_s,")
-        self.Architecture.BodyCodeFooter.add(indent(3)+"dout   => ready_s")
-        self.Architecture.BodyCodeFooter.add(indent(2)+");")
-        self.Architecture.BodyCodeFooter.add("end generate;")
+        else:
+            output_file.write(line)
+    return True;
 
 def axis_intercon ( entity_name, number_slaves, number_masters):
     #first we create inernal needed block.
