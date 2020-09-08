@@ -3,20 +3,20 @@ import os
 import vhdl_gen as vhdl
 import math
 
-RegisterTypeSet = {"ReadOnly", "ReadWrite", "Write2Clear", "Write2Pulse"}
+RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 
 TemplateCode = """
     ------------------------------------------------------------------------------------------------
     -- I/O Connections assignments
     ------------------------------------------------------------------------------------------------
-    S_AXI_AWREADY	<= awready_s;
-    S_AXI_WREADY	<= wready_s;
+    S_AXI_AWREADY <= awready_s;
+    S_AXI_WREADY  <= wready_s;
     S_AXI_BRESP	  <= bresp_s;
-    S_AXI_BVALID	<= bvalid_s;
-    S_AXI_ARREADY	<= arready_s;
+    S_AXI_BVALID  <= bvalid_s;
+    S_AXI_ARREADY <= arready_s;
     S_AXI_RDATA	  <= rready_s;
     S_AXI_RRESP	  <= rresp_s;
-    S_AXI_RVALID	<= rvalid_s;
+    S_AXI_RVALID  <= rvalid_s;
 
     ------------------------------------------------------------------------------------------------
     --write
@@ -220,13 +220,13 @@ TemplateCode = """
 """
 
 def GetDirection(type):
-    if type in ("ReadOnly", "Write2Clear"):
+    if type in ("ReadOnly", "Write2Clear", "SplitReadWrite"):
         return "in"
     else:
         return "out"
 
-def GetSuffix(type):
-    if type in ("ReadOnly", "Write2Clear"):
+def GetSuffix(direction):
+    if direction in ("in"):
         return "_i"
     else:
         return "_o"
@@ -240,10 +240,10 @@ class RegisterBit:
             print("Register Type not known. Using ReadOnly")
             Print(RegisterTypeSet)
         self.ExternalClear = False
-        self.name = name+GetSuffix(type)
-        self.radix = name
         self.direction = GetDirection(type)
         self.vhdlType = "std_logic"
+        self.name = name+GetSuffix(self.direction)
+        self.radix = name
 
 class RegisterSlice(RegisterBit):
     def __init__(self,name,type,size):
@@ -347,7 +347,11 @@ class RegisterBank(vhdl.BasicVHDL):
             register = self.reg[index]
             for bit in register:
                 try:
-                    self.Entity.port.add(register[bit].name,register[bit].direction,register[bit].vhdlType)
+                    if "SplitReadWrite" in register[bit].RegType:
+                        self.Entity.port.add(register[bit].radix+GetSuffix("in"),"in",register[bit].vhdlType)
+                        self.Entity.port.add(register[bit].radix+GetSuffix("out"),"out",register[bit].vhdlType)
+                    else:
+                        self.Entity.port.add(register[bit].name,register[bit].direction,register[bit].vhdlType)
                 except:
                     pass
 
@@ -376,6 +380,9 @@ class RegisterBank(vhdl.BasicVHDL):
                     elif "ReadWrite" in register[bit].RegType:
                         self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
                         self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" % (index,VectorRange,index,VectorRange))
+                    elif "SplitReadWrite" in register[bit].RegType:
+                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].radix+GetSuffix("out"),index,VectorRange))
+                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].radix+GetSuffix("in")))
                     elif "Write2Clear" in register[bit].RegType:
                         pass #self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                     elif "Write2Pulse" in register[bit].RegType:
@@ -424,11 +431,6 @@ class RegisterBank(vhdl.BasicVHDL):
         return vhdl.BasicVHDL.code(self)
 
 
-
-
-
-
-
 if __name__ == '__main__':
 
     #first we declare a register bank.
@@ -470,6 +472,12 @@ if __name__ == '__main__':
     myregbank.reg[4].add("DivByte1","Write2Clear",8,8)
     myregbank.reg[4].add("DivByte2","ReadWrite",16,8)
     myregbank.reg[4].add("DivByte3","ReadOnly",24,8)
+
+    #And we can create a very mixed register:
+    #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
+    myregbank.add(5,"ReadAWriteB")
+    myregbank.reg[5].add("ReadAWriteB","SplitReadWrite",0,32)
+
 
     print(myregbank.code())
 
