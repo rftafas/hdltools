@@ -1,10 +1,22 @@
+#################################################################################
+# Copyright 2020 Ricardo F Tafas Jr
+
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+
+#    http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software distributed
+# under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+# OR CONDITIONS OF ANY KIND, either express or implied. See the License for
+# the specific language governing permissions and limitations under the License.
+#################################################################################
 import sys
 import os
 
 #TODO:
 #Process
-#Instances
-#Component
 #Functions
 #Procedures
 #Custom Custom
@@ -74,7 +86,7 @@ class LibraryList(dict):
 class GenericObj:
     def __init__(self, name, type, init_value):
         self.name = name
-        self.init = init_value
+        self.init_value = value
         self.type = type
     def code(self):
         hdl_code = indent(2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init))
@@ -173,7 +185,6 @@ class ComponentObj:
         self.generic = GenericList()
         self.port    = PortList()
         self.filename = ""
-
     def code(self):
         hdl_code = indent(0) + ("component %s is\r\n" % self.name)
         if (self.generic):
@@ -205,11 +216,54 @@ class ComponentList(dict):
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
 
+class InstanceObj:
+    def __init__(self, name, value):
+        self.name = name
+        self.value = ""
+    def code(self):
+        hdl_code = indent(2) + ("%s => %s,\r\n" % (self.name, self.value))
+        return hdl_code
+
+class InstanceObjList(dict):
+    def add(self, name, type, value):
+        self[name] = InstanceObj(name,value)
+    def code(self):
+        return VHDLenum(self)
+
+class ComponentInstanceObj:
+    def __init__(self, instance_name, component_name):
+        self.instance_name  = instance_name
+        self.component_name = component_name
+        self.generic = InstanceObjList()
+        self.port    = InstanceObjList()
+        self.filename = ""
+    def code(self):
+        hdl_code = indent(0) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
+        if (self.generic):
+            hdl_code = hdl_code + indent(1) + ("generic map(\r\n")
+            hdl_code = hdl_code + self.generic.code()
+            hdl_code = hdl_code + indent(1) + (")\r\n")
+        if (self.port):
+            hdl_code = hdl_code + indent(1) + ("port map(\r\n")
+            hdl_code = hdl_code + self.port.code()
+            hdl_code = hdl_code + indent(1) + (");\r\n")
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+class ComponentInstanceList(dict):
+    def add(self,name):
+        self[name] = ComponentInstanceObj(name)
+    def code(self)
+        hdl_code = ""
+        for j in self.list:
+            hdl_code = hdl_code + self.list[j].code()
+        return hdl_code
+
 class Entity:
     def __init__(self, name):
-        self.name    = name
+        self.name = name
         self.generic = GenericList()
-        self.port    = PortList()
+        self.port = PortList()
 
     def code(self):
         hdl_code = indent(0) + ("entity %s is\r\n" % self.name)
@@ -239,7 +293,7 @@ class Architecture:
         self.EntityName = entity_name
         self.Signal = SignalList()
         self.Constant = ConstantList()
-        self.Component = ComponentList()
+        self.component = ComponentList()
         self.Functions = ""
         self.Procedures = ""
         self.CustomTypes = GenericCodeBlock(1)
@@ -285,9 +339,21 @@ class Architecture:
 
 class BasicVHDL:
     def __init__(self, entity_name, architecture_name):
-        self.Library      = LibraryList()
-        self.Entity       = Entity(entity_name)
-        self.Architecture = Architecture(architecture_name, entity_name)
+        self.library      = LibraryList()
+        self.entity       = Entity(entity_name)
+        self.architecture = Architecture(architecture_name, entity_name)
+
+    def instance(self, instance_name, generic_list, port_list):
+        self.tmpinst = ComponentInstanceObj()
+        for j in self.entity.generic.list:
+            self.tmpinst.generic.add(j.name,j.value)
+        for j in generic_list:
+            self.tmpinst.generic[j.name].value = [j.name]
+        for j in self.entity.port.list:
+            self.tmpinst.port.add(j.name,j.value)
+        for j in port_list:
+            self.tmpinst.generic[j.name].value = [j.name]
+        return self.tmpinst.code()
 
     def write_file(self):
         hdl_code = self.code()
@@ -295,7 +361,7 @@ class BasicVHDL:
         if (not os.path.exists("output")):
             os.makedirs(directory)
 
-        output_file_name = "output/"+self.Entity.name+".vhd"
+        output_file_name = "output/"+self.entity.name+".vhd"
         #to do: check if file exists. If so, emit a warning and
         #check if must clear it.
         output_file = open(output_file_name,"w+")
@@ -307,7 +373,7 @@ class BasicVHDL:
 
     def code(self):
         hdl_code = ""
-        hdl_code = hdl_code + self.Library.code()
-        hdl_code = hdl_code + self.Entity.code()
-        hdl_code = hdl_code + self.Architecture.code()
+        hdl_code = hdl_code + self.library.code()
+        hdl_code = hdl_code + self.entity.code()
+        hdl_code = hdl_code + self.architecture.code()
         return hdl_code
