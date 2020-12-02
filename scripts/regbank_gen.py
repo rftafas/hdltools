@@ -25,11 +25,11 @@ TemplateCode = """
     ------------------------------------------------------------------------------------------------
     S_AXI_AWREADY <= awready_s;
     S_AXI_WREADY  <= wready_s;
-    S_AXI_BRESP	  <= bresp_s;
+    S_AXI_BRESP   <= bresp_s;
     S_AXI_BVALID  <= bvalid_s;
     S_AXI_ARREADY <= arready_s;
-    S_AXI_RDATA	  <= rready_s;
-    S_AXI_RRESP	  <= rresp_s;
+    S_AXI_RDATA   <= rready_s;
+    S_AXI_RRESP   <= rresp_s;
     S_AXI_RVALID  <= rvalid_s;
 
     ------------------------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ TemplateCode = """
         end if;
     end process;
 
-  	regwrite_en <= wready_s  and  awready_s;
+    regwrite_en <= wready_s  and  awready_s;
 
     wreg_p : process (S_AXI_ACLK)
         variable loc_addr : integer;
@@ -141,7 +141,7 @@ TemplateCode = """
         end if;
     end process;
 
-  	------------------------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------------------------
     --Read
     ------------------------------------------------------------------------------------------------
     raddr_p : process(S_AXI_ARESETN, S_AXI_ACLK)
@@ -200,9 +200,9 @@ TemplateCode = """
     end process;
 
     --we only act if there is no pending read.
-  	regread_en <= arready_s nand rvalid_s;
+    regread_en <= arready_s nand rvalid_s;
 
-    -- Get data from ports to bus
+    --get data from ports to bus
     read_reg_p : process( S_AXI_ACLK ) is
         variable loc_addr : integer;
         variable reg_tmp : reg_t := (others => (others => '0'));
@@ -291,66 +291,66 @@ class RegisterList(dict):
     def add(self,number,Register):
         self[number] = Register
 
-class RegisterBank(vhdl.BasicVHDL):
+class registerBank(vhdl.basicVHDL):
     def __init__(self, entity_name, architecture_name, datasize, RegisterNumber):
-        vhdl.BasicVHDL.__init__(self, entity_name, architecture_name)
+        vhdl.basicVHDL.__init__(self, entity_name, architecture_name)
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber,2))
 
-        self.Library.add("IEEE")
-        self.Library["IEEE"].package.add("numeric_std")
-        self.Library.add("stdexpert")
-        self.Library["stdexpert"].package.add("std_logic_expert")
-        self.Entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
-        self.Entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
-        self.Entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARESETN", "in", "std_logic")
-        self.Entity.port.add("S_AXI_AWADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Entity.port.add("S_AXI_AWPROT", "in", "std_logic_vector(2 downto 0)")
-        self.Entity.port.add("S_AXI_AWVALID", "in", "std_logic")
-        self.Entity.port.add("S_AXI_AWREADY", "out", "std_logic")
-        self.Entity.port.add("S_AXI_WSTRB", "in", "std_logic_vector((C_S_AXI_DATA_WIDTH/8)-1 downto 0)")
-        self.Entity.port.add("S_AXI_WVALID", "in", "std_logic")
-        self.Entity.port.add("S_AXI_WREADY", "out", "std_logic")
-        self.Entity.port.add("S_AXI_BRESP", "out", "std_logic_vector(1 downto 0)")
-        self.Entity.port.add("S_AXI_BVALID", "out", "std_logic")
-        self.Entity.port.add("S_AXI_BREADY", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Entity.port.add("S_AXI_ARPROT", "in", "std_logic_vector(2 downto 0)")
-        self.Entity.port.add("S_AXI_ARVALID", "in", "std_logic")
-        self.Entity.port.add("S_AXI_ARREADY", "out", "std_logic")
-        self.Entity.port.add("S_AXI_RDATA", "out", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
-        self.Entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
-        self.Entity.port.add("S_AXI_RVALID", "out", "std_logic")
-        self.Entity.port.add("S_AXI_RREADY", "in", "std_logic")
+        self.library.add("IEEE")
+        self.library["IEEE"].package.add("numeric_std")
+        self.library.add("stdexpert")
+        self.library["stdexpert"].package.add("std_logic_expert")
+        self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
+        self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
+        self.entity.port.add("S_AXI_ACLK", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARESETN", "in", "std_logic")
+        self.entity.port.add("S_AXI_AWADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_AWPROT", "in", "std_logic_vector(2 downto 0)")
+        self.entity.port.add("S_AXI_AWVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_AWREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_WSTRB", "in", "std_logic_vector((C_S_AXI_DATA_WIDTH/8)-1 downto 0)")
+        self.entity.port.add("S_AXI_WVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_WREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_BRESP", "out", "std_logic_vector(1 downto 0)")
+        self.entity.port.add("S_AXI_BVALID", "out", "std_logic")
+        self.entity.port.add("S_AXI_BREADY", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_ARPROT", "in", "std_logic_vector(2 downto 0)")
+        self.entity.port.add("S_AXI_ARVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_RDATA", "out", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
+        self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
+        self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
 
-        self.Architecture.CustomTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
-        self.Architecture.Signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Architecture.Signal.add("awready_s", "std_logic")
-        self.Architecture.Signal.add("wready_s", "std_logic")
-        self.Architecture.Signal.add("bresp_s", "std_logic_vector(1 downto 0)")
-        self.Architecture.Signal.add("bvalid_s", "std_logic")
-        self.Architecture.Signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
-        self.Architecture.Signal.add("wtimeout_s", "std_logic")
+        self.architecture.customTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        self.architecture.Signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.architecture.Signal.add("awready_s", "std_logic")
+        self.architecture.Signal.add("wready_s", "std_logic")
+        self.architecture.Signal.add("bresp_s", "std_logic_vector(1 downto 0)")
+        self.architecture.Signal.add("bvalid_s", "std_logic")
+        self.architecture.Signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.Signal.add("wtimeout_s", "std_logic")
 
-        self.Architecture.Signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.Architecture.Signal.add("arready_s", "std_logic")
-        self.Architecture.Signal.add("rresp_s", "std_logic_vector(1 downto 0)")
-        self.Architecture.Signal.add("rvalid_s", "std_logic")
-        self.Architecture.Signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
-        self.Architecture.Signal.add("rtimeout_s", "std_logic")
+        self.architecture.Signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.architecture.Signal.add("arready_s", "std_logic")
+        self.architecture.Signal.add("rresp_s", "std_logic_vector(1 downto 0)")
+        self.architecture.Signal.add("rvalid_s", "std_logic")
+        self.architecture.Signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.Signal.add("rtimeout_s", "std_logic")
 
-        self.Architecture.Signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
-        self.Architecture.Signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
-        self.Architecture.Signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
-        self.Architecture.Signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.Signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.Signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.Signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.Signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
 
-        self.Architecture.Signal.add("regread_en", "std_logic")
-        self.Architecture.Signal.add("regwrite_en", "std_logic")
+        self.architecture.Signal.add("regread_en", "std_logic")
+        self.architecture.Signal.add("regwrite_en", "std_logic")
 
         for lines in TemplateCode.splitlines():
-            self.Architecture.BodyCodeHeader.add(lines)
+            self.architecture.bodyCodeHeader.add(lines)
 
 
     def add(self,number,name):
@@ -362,10 +362,10 @@ class RegisterBank(vhdl.BasicVHDL):
             for bit in register:
                 try:
                     if "SplitReadWrite" in register[bit].RegType:
-                        self.Entity.port.add(register[bit].radix+GetSuffix("in"),"in",register[bit].vhdlType)
-                        self.Entity.port.add(register[bit].radix+GetSuffix("out"),"out",register[bit].vhdlType)
+                        self.entity.port.add(register[bit].radix+GetSuffix("in"),"in",register[bit].vhdlType)
+                        self.entity.port.add(register[bit].radix+GetSuffix("out"),"out",register[bit].vhdlType)
                     else:
-                        self.Entity.port.add(register[bit].name,register[bit].direction,register[bit].vhdlType)
+                        self.entity.port.add(register[bit].name,register[bit].direction,register[bit].vhdlType)
                 except:
                     pass
 
@@ -375,12 +375,12 @@ class RegisterBank(vhdl.BasicVHDL):
             for bit in register:
                 try:
                     if register[bit].ExternalClear:
-                        self.Entity.port.add(register[bit].radix+"_clear_i",register[bit].direction,register[bit].vhdlType)
+                        self.entity.port.add(register[bit].radix+"_clear_i",register[bit].direction,register[bit].vhdlType)
                 except:
                     pass
 
     def RegisterConnection(self):
-        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "--Register Connection")
+        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Register Connection")
         for index in self.reg:
             register = self.reg[index]
             for bit in register:
@@ -390,21 +390,21 @@ class RegisterBank(vhdl.BasicVHDL):
                         VectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                         register[bit].name = register[bit].name+"(%d downto 0)" %  (register[bit].size-1)
                     if "ReadOnly" in register[bit].RegType:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                     elif "ReadWrite" in register[bit].RegType:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" % (index,VectorRange,index,VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" % (index,VectorRange,index,VectorRange))
                     elif "SplitReadWrite" in register[bit].RegType:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].radix+GetSuffix("out"),index,VectorRange))
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].radix+GetSuffix("in")))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].radix+GetSuffix("out"),index,VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].radix+GetSuffix("in")))
                     elif "Write2Clear" in register[bit].RegType:
-                        pass #self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
+                        pass #self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                     elif "Write2Pulse" in register[bit].RegType:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
-        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "")
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
+        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "")
 
     def RegisterSetConnection(self):
-        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "--Set Connection for Write to Clear")
+        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Set Connection for Write to Clear")
         for index in self.reg:
             register = self.reg[index]
             for bit in register:
@@ -413,12 +413,12 @@ class RegisterBank(vhdl.BasicVHDL):
                     if isinstance(register[bit], RegisterSlice):
                         VectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                     if "Write2Clear" in register[bit].RegType:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
-                        #self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= regread_s(%d)(%s)" % (index,VectorRange,index,VectorRange))
-        self.Architecture.BodyCodeFooter.add("")
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
+                        #self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= regread_s(%d)(%s)" % (index,VectorRange,index,VectorRange))
+        self.architecture.bodyCodeFooter.add("")
 
     def RegisterClearConnection(self):
-        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "--External Clear Connection")
+        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--External Clear Connection")
         for index in self.reg:
             register = self.reg[index]
             for bit in register:
@@ -433,8 +433,8 @@ class RegisterBank(vhdl.BasicVHDL):
                     if "Write2Clear" in register[bit].RegType:
                         elsevalue =  "regwrite_s(%d)(%s)" % (index,VectorRange)
                     if register[bit].ExternalClear:
-                        self.Architecture.BodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" % (index,VectorRange,defaultvalue,clearname,elsevalue))
-        self.Architecture.BodyCodeFooter.add("")
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" % (index,VectorRange,defaultvalue,clearname,elsevalue))
+        self.architecture.bodyCodeFooter.add("")
 
     def code(self):
         self.RegisterPortAdd()
@@ -442,7 +442,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.RegisterConnection()
         self.RegisterSetConnection()
         self.RegisterClearConnection()
-        return vhdl.BasicVHDL.code(self)
+        return vhdl.basicVHDL.code(self)
 
 
 if __name__ == '__main__':
@@ -450,7 +450,7 @@ if __name__ == '__main__':
     #first we declare a register bank.
     #It is a 32 bit register with 8 possible positions.
     #we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank","rtl",32,8)
+    myregbank = registerBank("myregbank","rtl",32,8)
 
     #this is an axample of a read only register for ID, Golden number, Inputs
     #we add a position (address) and name it. Also, it is a 32bit, it must start at 0.

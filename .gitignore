@@ -1,1 +1,2 @@
-output/
+scripts/output
+scripts/__pycache__
