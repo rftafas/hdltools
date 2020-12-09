@@ -23,124 +23,104 @@ def indent(value):
         txt = txt + " "
     return txt;
 
-def create_axis_port( port_name, type, number, indsize):
-    code = ""
-    if ("master" in type):
-        for j in range(number):
-            code = code + indent(indsize) + ("--AXIS Master Port %d\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tdata_o    : out std_logic_vector(tdata_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tuser_o    : out std_logic_vector(tuser_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tdest_o    : out std_logic_vector(tdest_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tready_i   : in  std_logic;\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tvalid_o   : out std_logic;\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tlast_o    : out std_logic;\r\n" % j)
-    else :
-        for j in range(number):
-            code = code + indent(indsize) + ("--AXIS Slave Port %d\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tdata_i  : in  std_logic_vector(tdata_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tuser_i  : in  std_logic_vector(tuser_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tdest_i  : in  std_logic_vector(tdest_size-1 downto 0);\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tready_o : out std_logic;\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tvalid_i : in  std_logic;\r\n" % j)
-            code = code + indent(indsize) + port_name + ("%d_tlast_i  : in  std_logic;\r\n" % j)
-    return code
+if not os.path.exists("output"):
+    os.mkdir("output")
 
-def create_axis_signal( signal_name, size, indsize):
-    code = ""
-    code = code + indent(indsize) + ("signal %s_tdata_s  :  axi_tdata_array(%s-1 downto 0);\r\n" % (signal_name,size))
-    code = code + indent(indsize) + ("signal %s_tuser_s  :  axi_tuser_array(%s-1 downto 0);\r\n" % (signal_name,size))
-    code = code + indent(indsize) + ("signal %s_tdest_s  :  axi_tdest_array(%s-1 downto 0);\r\n" % (signal_name,size))
-    code = code + indent(indsize) + ("signal %s_tvalid_s : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
-    code = code + indent(indsize) + ("signal %s_tlast_s  : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
-    code = code + indent(indsize) + ("signal %s_tready_s : std_logic_vector(%s-1 downto 0);\r\n" % (signal_name,size))
-    return code
+class axiInfra(vhdl.basicVHDL):
+    def __init__(self, entity_name):
+        self.master_num   = master_num
+        self.m_tdata_byte = m_tdata_byte
+        self.m_tdest_size = m_tdest_size
+        self.m_tuser_size = m_tuser_size
+        self.slave_num    = slave_num
+        self.s_tdata_byte = s_tdata_byte
+        self.s_tdest_size = s_tdest_size
+        self.s_tuser_size = s_tuser_size
 
-def create_port_connection( port_name, type, number_elements, indsize):
-    code = ""
-    if ("slave" in type):
-        code = code + indent(indsize) + ("--Slave Connections\r\n")
-        for j in range(number_elements):
-            code = code + indent(indsize) + ("--Slave %d\r\n" % j)
-            code = code + indent(indsize) + ("s_tvalid_s(%d) <= %s%d_tvalid_i;\r\n"   % (j, port_name, j))
-            code = code + indent(indsize) + ("s_tlast_s(%d)  <= %s%d_tlast_i;\r\n"    % (j, port_name, j))
-            code = code + indent(indsize) + ("%s%d_tready_o  <= s_tready_s(%d);\r\n" % (port_name, j, j))
-            code = code + indent(indsize) + ("s_tdata_s(%d)  <= %s%d_tdata_i;\r\n"    % (j, port_name, j))
-            code = code + indent(indsize) + ("s_tuser_s(%d)  <= %s%d_tuser_i;\r\n"    % (j, port_name, j))
-            code = code + indent(indsize) + ("s_tdest_s(%d)  <= %s%d_tdest_i;\r\n"    % (j, port_name, j))
-            code = code + indent(indsize) + ("\r\n")
-    else:
-        code = code + indent(indsize)+("--Master Connections\r\n")
-        for j in range(number_elements):
-            code = code + indent(indsize) + ("--Master %d\r\n" % j)
-            code = code + indent(indsize) + ("%s%d_tvalid_o <= m_tvalid_s(%d);\r\n" % (port_name, j, j))
-            code = code + indent(indsize) + ("%s%d_tlast_o  <= m_tlast_s(%d);\r\n"  % (port_name, j, j))
-            code = code + indent(indsize) + ("m_tready_s(%d) <= %s%d_tready_i;\r\n"   % (j, port_name, j))
-            code = code + indent(indsize) + ("%s%d_tdata_o  <= m_tdata_s(%d);\r\n"  % (port_name, j, j))
-            code = code + indent(indsize) + ("%s%d_tuser_o  <= m_tuser_s(%d);\r\n"  % (port_name, j, j))
-            code = code + indent(indsize) + ("%s%d_tdest_o  <= m_tdest_s(%d);\r\n"  % (port_name, j, j))
-            code = code + indent(indsize) + ("\r\n")
-    return code
+        vhdl.basicVHDL.__init__(self, entity_name, "axi_structural")
 
-def create_instance_connection( port_name, signal_name, signal_sufix, type, indsize):
-    code = ""
-    if ("slave" in type):
-        code = code + indent(indsize) + ("--Slave %s\r\n" % port_name)
-        code = code + indent(indsize) + ("%s_tvalid_i => %s_tvalid_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tlast_i  =>  %s_tlast_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tready_o => %s_tready_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tdata_i  =>  %s_tdata_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tuser_i  =>  %s_tuser_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tdest_i  =>  %s_tdest_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("\r\n")
-    else:
-        code = code + indent(indsize) + ("--Master %s\r\n" % port_name)
-        code = code + indent(indsize) + ("%s_tvalid_o => %s_tvalid_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tlast_o  =>  %s_tlast_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tready_i => %s_tready_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tdata_o  =>  %s_tdata_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tuser_o  =>  %s_tuser_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("%s_tdest_o  =>  %s_tdest_s%s,\r\n" % (port_name, signal_name, signal_sufix))
-        code = code + indent(indsize) + ("\r\n")
-    return code
+        self.library.add("IEEE")
+        self.library["IEEE"].package.add("numeric_std")
+        self.library.add("stdexpert")
+        self.library["stdexpert"].package.add("std_logic_expert")
 
-def create_signal_connection( signala_name, signala_sufix, signalb_name, signalb_sufix, indsize):
-    code = ""
-    code = code + indent(indsize) + ("--Connext %s to %s\r\n" % (signala_name,signalb_name))
-    code = code + indent(indsize) + ("%s_tvalid_s%s <= %s_tvalid_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-    code = code + indent(indsize) + ("%s_tlast_s%s  <=  %s_tlast_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-    code = code + indent(indsize) + ("%s_tready_s%s <= %s_tready_s%s;\r\n" % (signalb_name, signalb_sufix, signala_name, signala_sufix))
-    code = code + indent(indsize) + ("%s_tdata_s%s  <=  %s_tdata_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-    code = code + indent(indsize) + ("%s_tuser_s%s  <=  %s_tuser_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-    code = code + indent(indsize) + ("%s_tdest_s%s  <=  %s_tdest_s%s;\r\n" % (signala_name, signala_sufix, signalb_name, signalb_sufix))
-    code = code + indent(indsize) + ("\r\n")
-    return code
+        self.entity.port.add("rst_i", "in", "std_logic")
+        self.entity.port.add("mclk_i", "in", "std_logic")
 
-def axi_custom( entity_name, number_slaves, number_masters):
-    #check for axis_concat existance
-    output_file_name = "output/"+entity_name+".vhd"
-    output_file = open(output_file_name,"w+")
+    def create_master_ports(self, master_num, m_tdata_byte, m_tdest_size, m_tuser_size):
+        for j in range(master_num):
+            self.entity.port.add("m%d_tdata_o " % j,"out","std_logic_vector(8*tdata_byte-1 downto 0)")
+            self.entity.port.add("m%d_tstrb_o " % j,"out","std_logic_vector(tdata_byte-1   downto 0)")
+            self.entity.port.add("m%d_tuser_o " % j,"out","std_logic_vector(tuser_size-1   downto 0)")
+            self.entity.port.add("m%d_tdest_o " % j,"out","std_logic_vector(tdest_size-1   downto 0)")
+            self.entity.port.add("m%d_tready_i" % j,"in ","std_logic)")
+            self.entity.port.add("m%d_tvalid_o" % j,"out","std_logic)")
+            self.entity.port.add("m%d_tlast_o " % j,"out","std_logic)")
 
-    concat_source = open("templates/axis_custom.vhd","r")
-    code_lines = concat_source.readlines()
+        self.architecture.signal.add("m_tdata_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,8*self.m_tdata_byte-1) )
+        self.architecture.signal.add("m_tstrb_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tdata_byte-1) )
+        self.architecture.signal.add("m_tuser_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tuser_size-1) )
+        self.architecture.signal.add("m_tdest_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tdest_size-1) )
+        self.architecture.signal.add("m_tready_s","in ","std_logic_vector(%d downto 0)" % master_num )
+        self.architecture.signal.add("m_tvalid_s","out","std_logic_vector(%d downto 0)" % master_num )
+        self.architecture.signal.add("m_tlast_s ","out","std_logic_vector(%d downto 0)" % master_num )
 
-    for line in code_lines:
-        if ("entity axi_custom is" in line):
-            output_file.write("entity %s is\r\n" % entity_name)
-        elif ("end axi_custom;" in line):
-            output_file.write("end %s;\r\n" % entity_name)
-        elif ("architecture" in line):
-            output_file.write("architecture behavioral of %s is\r\n" % entity_name)
-        elif ("--python port code" in line):
-            output_file.write(create_axis_port("s","slave",number_slaves,3))
-            output_file.write(create_axis_port("m","master",number_masters,3))
-        elif ("--python constant code" in line):
-            output_file.write(indent(1)+"constant number_slaves  : integer := %d;\r\n" % number_slaves)
-            output_file.write(indent(1)+"constant number_masters : integer := %d;\r\n" % number_masters)
-        elif ("--python signal connections" in line):
-            output_file.write(create_port_connection("m","master",number_masters,1))
-            output_file.write(create_port_connection("s","slaves",number_slaves,1))
-        else:
-            output_file.write(line)
+        for j in range(master_num):
+            self.architecture.bodyCodeHeader.add("--Master %d" % j)
+            self.architecture.bodyCodeHeader.add("m%d_tvalid_o <= m_tvalid_s(%d);"  % (j, j) )
+            self.architecture.bodyCodeHeader.add("m%d_tlast_o  <= m_tlast_s(%d);"   % (j, j) )
+            self.architecture.bodyCodeHeader.add("m_tready_s(%d) <= m%d_tready_i;" % (j, j) )
+            self.architecture.bodyCodeHeader.add("m%d_tdata_o  <= m_tdata_s(%d);"   % (j, j) )
+            self.architecture.bodyCodeHeader.add("m%d_tstrb_o  <= m_tstrb_s(%d);"   % (j, j) )
+            self.architecture.bodyCodeHeader.add("m%d_tuser_o  <= m_tuser_s(%d);"   % (j, j) )
+            self.architecture.bodyCodeHeader.add("m%d_tdest_o  <= m_tdest_s(%d);"   % (j, j) )
+
+    def create_master_ports(self, slave_num, s_tdata_byte, s_tdest_size, s_tuser_size):
+        for j in range(slave_num):
+            self.entity.port.add("s%d_tdata_i " % j,"in ","std_logic_vector(8*tdata_byte-1 downto 0)")
+            self.entity.port.add("s%d_tstrb_i " % j,"in ","std_logic_vector(tdata_byte-1   downto 0)")
+            self.entity.port.add("s%d_tuser_i " % j,"in ","std_logic_vector(tuser_size-1   downto 0)")
+            self.entity.port.add("s%d_tdest_i " % j,"in ","std_logic_vector(tdest_size-1   downto 0)")
+            self.entity.port.add("s%d_tready_o" % j,"out","std_logic")
+            self.entity.port.add("s%d_tvalid_i" % j,"in ","std_logic")
+            self.entity.port.add("s%d_tlast_i " % j,"in ","std_logic")
+
+        self.architecture.signal.add("s_tdata_s ","in ","std_logic_matrix(%d downto 0)(%d downto 0)" % (slave_num,8*self.s_tdata_byte-1) )
+        self.architecture.signal.add("s_tstrb_s ","in ","std_logic_matrix(%d downto 0)(%d downto 0)" % (slave_num,self.s_tdata_byte-1) )
+        self.architecture.signal.add("s_tuser_s ","in ","std_logic_matrix(%d downto 0)(%d downto 0)" % (slave_num,self.s_tuser_size-1) )
+        self.architecture.signal.add("s_tdest_s ","in ","std_logic_matrix(%d downto 0)(%d downto 0)" % (slave_num,self.s_tdest_size-1) )
+        self.architecture.signal.add("s_tready_s","out","std_logic_vector(%d downto 0)" % slave_num)
+        self.architecture.signal.add("s_tvalid_s","in ","std_logic_vector(%d downto 0)" % slave_num)
+        self.architecture.signal.add("s_tlast_s ","in ","std_logic_vector(%d downto 0)" % slave_num)
+
+        for j in range(master_num):
+            self.architecture.bodyCodeHeader.add("--Slave %d" % j)
+            self.architecture.bodyCodeHeader.add("s_tvalid_s(%d) <= s%d_tvalid_i;"   % (j, j) )
+            self.architecture.bodyCodeHeader.add("s_tlast_s(%d)  <= s%d_tlast_i;"    % (j, j) )
+            self.architecture.bodyCodeHeader.add("s%d_tready_o   <= s_tready_s(%d);" % (j, j) )
+            self.architecture.bodyCodeHeader.add("s_tdata_s(%d)  <= s%d_tdata_i;"    % (j, j) )
+            self.architecture.bodyCodeHeader.add("s_tstrb_s(%d)  <= s%d_tstrb_i;"    % (j, j) )
+            self.architecture.bodyCodeHeader.add("s_tuser_s(%d)  <= s%d_tuser_i;"    % (j, j) )
+            self.architecture.bodyCodeHeader.add("s_tdest_s(%d)  <= s%d_tdest_i;"    % (j, j) )
+
+
+def axi_custom( entity_name, number_masters, number_slaves):
+    try:
+        master_num = sys.argv[3]
+    except:
+        error_help()
+
+    axi = axiInfra(entity_name)
+    axi.entity.generic.add("m_tdata_byte", "positive", "8")
+    axi.entity.generic.add("m_tuser_size", "positive", "8")
+    axi.entity.generic.add("m_tdest_size", "positive", "8")
+    axi.entity.generic.add("s_tdata_byte", "positive", "8")
+    axi.entity.generic.add("s_tuser_size", "positive", "8")
+    axi.entity.generic.add("s_tdest_size", "positive", "8")
+
+    axi.create_master_ports(number_masters,"m_tdata_byte","m_tuser_size","m_tdest_size")
+    axi.create_slave_ports(number_slaves,"s_tdata_byte","s_tuser_size","s_tdest_size")
+    axi.write_file()
     return True;
 
 def axi_concat( entity_name, number_elements):
@@ -404,11 +384,13 @@ def error_help():
 ####################################################################################################
 # Application Menu
 ####################################################################################################
-if not os.path.exists("output"):
-    os.mkdir("output")
-
 try:
     command = sys.argv[1]
+except:
+    error_help()
+
+try:
+    entity_name = sys.argv[2]
 except:
     error_help()
 
@@ -421,7 +403,6 @@ if (command == "custom"):
         print("Something is missing.\r\n")
         print("python axi-build.py custom <entity name> <number of slaves> <number of masters>\r\n")
         sys.exit()
-    success = axi_custom( entity_name, number_slaves, number_masters)
 elif (command == "concat"):
     try:
         entity_name = sys.argv[2]
@@ -430,7 +411,6 @@ elif (command == "concat"):
         print("Something is missing.\r\n")
         print("python axi-build.py concat <entity name> <number of slaves>\r\n")
         sys.exit()
-    success = axi_concat(entity_name,number_slaves)
 elif (command == "mux"):
     try:
         entity_name = sys.argv[2]
@@ -439,7 +419,6 @@ elif (command == "mux"):
         print("Something is missing.\r\n")
         print("python axi-build.py mux <entity name> <number of slaves>\r\n")
         sys.exit()
-    success = axis_mux(entity_name,number_slaves)
 elif (command == "demux"):
     try:
         entity_name = sys.argv[2]
@@ -448,7 +427,6 @@ elif (command == "demux"):
         print("Something is missing.\r\n")
         print("python axi-build.py demux <entity name> <number of masters>\r\n")
         sys.exit()
-    success = axis_demux(entity_name,number_masters)
 elif (command == "aligner"):
     try:
         entity_name = sys.argv[2]
@@ -457,7 +435,6 @@ elif (command == "aligner"):
         print("Something is missing.\r\n")
         print("python axi-build.py aligner <entity name> <number of ports>\r\n")
         sys.exit()
-    success = axis_aligner(entity_name,number_slaves)
 elif (command == "intercon"):
     try:
         entity_name = sys.argv[2]
@@ -467,7 +444,6 @@ elif (command == "intercon"):
         print("Something is missing.\r\n")
         print("python axi-build.py intercon <entity name> <number of slaves> <number of masters>\r\n")
         sys.exit()
-    success = axis_intercon(entity_name,number_slaves,number_masters)
 elif (command == "broadcast"):
     try:
         entity_name = sys.argv[2]
@@ -476,17 +452,28 @@ elif (command == "broadcast"):
         print("Something is missing.\r\n")
         print("python axi-build.py broadcast <entity name> <number of masters>\r\n")
         sys.exit()
-    success = axis_broadcast(entity_name,number_masters)
 else:
     print("Command not supported or yet to be implemented.")
     error_help()
 
-
 if success:
-    print("output is "+entity_name+".vhd")
-    print("---------------------------------------------------------------------------------------------------------")
-    print("-- This code and its autogenerated outputs are provided under LGPL by Ricardo Tafas.                   --")
-    print("-- What does that mean? That you get it for free as long as you give back all good stuff you add to it.--")
-    print("-- You can download more VHDL stuff at https://github.com/rftafas                                      --")
-    print("---------------------------------------------------------------------------------------------------------")
+    print("# Copyright 2020 Ricardo F Tafas Jr\r\n"
+    print("#\r\n"
+    print("# Licensed under the Apache License, Version 2.0 (the "License"); you may not\r\n"
+    print("# use this file except in compliance with the License. You may obtain a copy of\r\n"
+    print("# the License at:\r\n"
+    print("#\r\n"
+    print("#    http://www.apache.org/licenses/LICENSE-2.0\r\n"
+    print("#\r\n"
+    print("# Unless required by applicable law or agreed to in writing, software distributed\r\n"
+    print("# under the License is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES\r\n"
+    print("# OR CONDITIONS OF ANY KIND, either express or implied. See the License for\r\n"
+    print("# the specific language governing permissions and limitations under the License.\r\n"
+    print("-----------------------------------------------------------------------------------\r\n")
+    print("-- You can download more VHDL stuff at https://github.com/rftafas\r\n")
+    print("-- output at otuput/"+entity_name+".vhd\r\n")
+    print("-- \r\n")
+    print("-- Do not forget to add all contents on dependencies folder by doing:\r\n")
+    print("-- git submodule update --init --recursive\r\n")
+    print("---------------------------------------------------------------------------------------")
 sys.exit()
