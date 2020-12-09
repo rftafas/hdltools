@@ -294,6 +294,7 @@ class RegisterList(dict):
 class registerBank(vhdl.basicVHDL):
     def __init__(self, entity_name, architecture_name, datasize, RegisterNumber):
         vhdl.basicVHDL.__init__(self, entity_name, architecture_name)
+        self.generate_code = False
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber,2))
@@ -437,11 +438,13 @@ class registerBank(vhdl.basicVHDL):
         self.architecture.bodyCodeFooter.add("")
 
     def code(self):
-        self.RegisterPortAdd()
-        self.RegisterClearAdd()
-        self.RegisterConnection()
-        self.RegisterSetConnection()
-        self.RegisterClearConnection()
+        if (not self.generate_code):
+            self.RegisterPortAdd()
+            self.RegisterClearAdd()
+            self.RegisterConnection()
+            self.RegisterSetConnection()
+            self.RegisterClearConnection()
+            self.generate_code = True
         return vhdl.basicVHDL.code(self)
 
     def write_file(self):
