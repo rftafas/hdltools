@@ -491,8 +491,8 @@ if __name__ == '__main__':
 
     #And we can create a very mixed register:
     #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
-    myregbank.add(5,"ReadAWriteB")
-    myregbank.reg[5].add("ReadAWriteB","SplitReadWrite",0,32)
+    myregbank.add(6,"ReadAWriteB")
+    myregbank.reg[6].add("ReadAWriteB","SplitReadWrite",0,32)
 
 
     print(myregbank.code())
