@@ -444,6 +444,8 @@ class registerBank(vhdl.basicVHDL):
         self.RegisterClearConnection()
         return vhdl.basicVHDL.code(self)
 
+    def write_file(self):
+        return vhdl.basicVHDL.write_file(self)
 
 if __name__ == '__main__':
 
@@ -462,30 +464,30 @@ if __name__ == '__main__':
     myregbank.add(1,"myReadWrite1")
     myregbank.reg[1].add("myReadWrite1","ReadWrite",0,32)
     #this is an example for a read/write generic register with external clear.
-    myregbank.add(2,"myReadWrite1")
-    myregbank.reg[2].add("myReadWrite1","ReadWrite",0,32)
+    myregbank.add(2,"myReadWrite2")
+    myregbank.reg[2].add("myReadWrite2","ReadWrite",0,32)
     myregbank.reg[2].ExternalClear = True
     #this is an example of a write to clear register
-    myregbank.add(2,"MyWriteToClear")
-    myregbank.reg[2].add("MyWriteToClear","Write2Clear",0,32)
+    myregbank.add(3,"MyWriteToClear")
+    myregbank.reg[3].add("MyWriteToClear","Write2Clear",0,32)
     #wee can use just a slice on any type. Lets create a slice.
     #we will use 2 16bit register.
-    myregbank.add(3,"SlicedReg")
-    myregbank.reg[3].add("pulse","Write2Pulse",0,16)
-    myregbank.reg[3].add("pulse","Write2Pulse",16,16)
+    myregbank.add(4,"SlicedReg")
+    myregbank.reg[4].add("pulse","Write2Pulse",0,16)
+    myregbank.reg[4].add("pulse","Write2Pulse",16,16)
 
     #And we can create a very mixed register:
     #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
-    myregbank.add(4,"MixedRegister")
-    myregbank.reg[4].add("PulseBit","Write2Pulse",0,1)
-    myregbank.reg[4][0].ExternalClear = True #for example, we want to kill the pulse.
-    myregbank.reg[4].add("Write2ClearBit","Write2Clear",1,1)
-    myregbank.reg[4][1].ExternalClear = True #either my write or the external can clear it.
-    myregbank.reg[4].add("ReadOnlyBit","ReadOnly",2,1)
-    myregbank.reg[4][2].ExternalClear = True #I can force a '0' read.
-    myregbank.reg[4].add("DivByte1","Write2Clear",8,8)
-    myregbank.reg[4].add("DivByte2","ReadWrite",16,8)
-    myregbank.reg[4].add("DivByte3","ReadOnly",24,8)
+    myregbank.add(5,"MixedRegister")
+    myregbank.reg[5].add("PulseBit","Write2Pulse",0,1)
+    myregbank.reg[5][0].ExternalClear = True #for example, we want to kill the pulse.
+    myregbank.reg[5].add("Write2ClearBit","Write2Clear",1,1)
+    myregbank.reg[5][1].ExternalClear = True #either my write or the external can clear it.
+    myregbank.reg[5].add("ReadOnlyBit","ReadOnly",2,1)
+    myregbank.reg[5][2].ExternalClear = True #I can force a '0' read.
+    myregbank.reg[5].add("DivByte1","Write2Clear",8,8)
+    myregbank.reg[5].add("DivByte2","ReadWrite",16,8)
+    myregbank.reg[5].add("DivByte3","ReadOnly",24,8)
 
     #And we can create a very mixed register:
     #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
