@@ -38,7 +38,7 @@ TemplateCode = """
     waddr_p : process(S_AXI_ARESETN, S_AXI_ACLK)
     begin
         if S_AXI_ARESETN = '0' then
-            awready_s <= '1;
+            awready_s <= '1';
             awaddr_s  <= (others => '1');
         elsif rising_edge(S_AXI_ACLK) then
             if (awready_s = '1' and S_AXI_AWVALID = '1' ) then
