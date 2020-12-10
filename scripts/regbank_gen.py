@@ -116,15 +116,15 @@ TemplateCode = """
         if S_AXI_ARESETN = '0' then
             regwrite_s <= (others => (others => '0'));
         elsif rising_edge(S_AXI_ACLK) then
-            loc_addr := to_integer(unsigned(awaddr_s(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB)));
+            loc_addr := to_integer(unsigned(awaddr_s(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB)));
             for j in regwrite_s'range loop
-                for k in BYTE_NUM-1 downto 0 loop
+                for k in C_S_AXI_ADDR_BYTE-1 downto 0 loop
                     for m in 7 downto 0 loop
-                        if ext_clear_s(j)(k*8+m) = '1' then
+                        if regclear_s(j)(k*8+m) = '1' then
                             regwrite_s(j)(k*8+m) <= '0';
                         elsif regwrite_en = '1' then
                             if S_AXI_WSTRB(k) = '1' then
-                                if write2clear_c(j)(k*8+m) or write2pulse_c(j)(k*8+m) = '1' then
+                                if regclear_s(j)(k*8+m) = '1' then
                                     if regwrite_s(j)(k*8+m) = '1' then
                                         regwrite_s(j)(k*8+m) <= '0';
                                     else
@@ -168,19 +168,19 @@ TemplateCode = """
             rresp_s  <= "00";
         elsif rising_edge(S_AXI_ACLK) then
             if arready_s = '0' then --there is an address waiting for us.
-                axi_rvalid <= '1';
-                axi_rresp  <= "00"; -- 'OKAY' response
+                rvalid_s <= '1';
+                rresp_s  <= "00"; -- 'OKAY' response
             elsif S_AXI_RREADY = '1' then
                 --Read data is accepted by the master
-                axi_rvalid <= '0';
+                rvalid_s <= '0';
             elsif rtimeout_s = '1' then
                 --when it times out? when after doing my part, master does not respond
                 --with the RREADY, meaning he havent read my data.
-                axi_rvalid <= '0';
-                axi_rresp  <= "10"; -- No one is expected to read this. Debug only.
+                rvalid_s <= '0';
+                rresp_s  <= "10"; -- No one is expected to read this. Debug only.
             else
-                axi_rvalid <= '0';
-                axi_rresp  <= "00"; -- No one is expected to read this. Debug only.
+                rvalid_s <= '0';
+                rresp_s  <= "00"; -- No one is expected to read this. Debug only.
             end if;
         end if;
     end process;
@@ -205,7 +205,8 @@ TemplateCode = """
     --get data from ports to bus
     read_reg_p : process( S_AXI_ACLK ) is
         variable loc_addr : integer;
-        variable reg_tmp : reg_t := (others => (others => '0'));
+        variable reg_tmp  : reg_t := (others => (others => '0'));
+        variable reg_lock : reg_t := (others => (others => '0'));
     begin
         if (S_AXI_ARESETN = '0') then
             reg_tmp  := (others => (others => '0'));
@@ -225,7 +226,7 @@ TemplateCode = """
                 end loop;
             end loop;
             --
-            loc_addr := to_integer(axi_araddr(C_S_AXI_ADDR_WIDTH-1 downto ADDR_LSB);
+            loc_addr := to_integer(axi_araddr(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB);
             if regread_en = '1' then
                 S_AXI_RDATA  <= reg_tmp(loc_addr);
             end if;
@@ -326,29 +327,34 @@ class registerBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
 
+
+        self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
+        self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
+
         self.architecture.customTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
-        self.architecture.Signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.architecture.Signal.add("awready_s", "std_logic")
-        self.architecture.Signal.add("wready_s", "std_logic")
-        self.architecture.Signal.add("bresp_s", "std_logic_vector(1 downto 0)")
-        self.architecture.Signal.add("bvalid_s", "std_logic")
-        self.architecture.Signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
-        self.architecture.Signal.add("wtimeout_s", "std_logic")
+        self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.architecture.signal.add("awready_s", "std_logic")
+        self.architecture.signal.add("wready_s", "std_logic")
+        self.architecture.signal.add("bresp_s", "std_logic_vector(1 downto 0)")
+        self.architecture.signal.add("bvalid_s", "std_logic")
+        self.architecture.signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("wtimeout_s", "std_logic")
 
-        self.architecture.Signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.architecture.Signal.add("arready_s", "std_logic")
-        self.architecture.Signal.add("rresp_s", "std_logic_vector(1 downto 0)")
-        self.architecture.Signal.add("rvalid_s", "std_logic")
-        self.architecture.Signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
-        self.architecture.Signal.add("rtimeout_s", "std_logic")
+        self.architecture.signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.architecture.signal.add("arready_s", "std_logic")
+        self.architecture.signal.add("rready_s", "std_logic")
+        self.architecture.signal.add("rresp_s", "std_logic_vector(1 downto 0)")
+        self.architecture.signal.add("rvalid_s", "std_logic")
+        self.architecture.signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("rtimeout_s", "std_logic")
 
-        self.architecture.Signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.Signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.Signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.Signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
 
-        self.architecture.Signal.add("regread_en", "std_logic")
-        self.architecture.Signal.add("regwrite_en", "std_logic")
+        self.architecture.signal.add("regread_en", "std_logic")
+        self.architecture.signal.add("regwrite_en", "std_logic")
 
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)

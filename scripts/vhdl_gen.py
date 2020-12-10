@@ -113,7 +113,7 @@ class PortList(dict):
     def code(self):
         return VHDLenum(self)
 
-class ConstantObj:
+class constantObj:
     def __init__(self, name, type, init):
         self.name = name
         self.type = type
@@ -121,7 +121,7 @@ class ConstantObj:
     def code(self):
         return indent(1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
 
-class SignalObj:
+class signalObj:
     def __init__(self, name, type, *args):
         self.name = name
         self.type = type
@@ -151,13 +151,13 @@ class VariableObj:
 
 class constantList(dict):
     def add(self,name,type,init):
-        self[name] = ConstantObj(name,type,init)
+        self[name] = constantObj(name,type,init)
     def code(self):
         return DictCode(self)
 
 class signalList(dict):
     def add(self,name,type,*args):
-        self[name] = SignalObj(name,type,*args)
+        self[name] = signalObj(name,type,*args)
     def code(self):
         return DictCode(self)
 
@@ -289,13 +289,13 @@ class Entity:
 
 class architecture:
     def __init__(self, name, entity_name):
-        self.Name = name
-        self.EntityName = entity_name
-        self.Signal = signalList()
-        self.Constant = constantList()
+        self.name = name
+        self.entityName = entity_name
+        self.signal = signalList()
+        self.constant = constantList()
         self.component = componentList()
-        self.Functions = ""
-        self.Procedures = ""
+        self.functions = ""
+        self.procedures = ""
         self.customTypes = genericCodeBlock(1)
         self.declarationHeader = genericCodeBlock(1)
         self.declarationFooter = genericCodeBlock(1)
@@ -307,7 +307,7 @@ class architecture:
 
     def code(self):
         hdl_code = ""
-        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.Name, self.EntityName))
+        hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.name, self.entityName))
         hdl_code = hdl_code + "\r\n"
         if (self.declarationHeader):
             hdl_code = hdl_code + self.declarationHeader.code()
@@ -318,11 +318,11 @@ class architecture:
         if (self.component):
             hdl_code = hdl_code + self.component.code()
             hdl_code = hdl_code + "\r\n"
-        if (self.Constant):
-            hdl_code = hdl_code + self.Constant.code()
+        if (self.constant):
+            hdl_code = hdl_code + self.constant.code()
             hdl_code = hdl_code + "\r\n"
-        if (self.Signal):
-            hdl_code = hdl_code + self.Signal.code()
+        if (self.signal):
+            hdl_code = hdl_code + self.signal.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(1) + ("--architecture_declaration_tag\r\n")
         hdl_code = hdl_code + "\r\n"
@@ -336,7 +336,7 @@ class architecture:
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.Name)
+        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
