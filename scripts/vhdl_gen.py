@@ -312,14 +312,14 @@ class architecture:
         if (self.declarationHeader):
             hdl_code = hdl_code + self.declarationHeader.code()
             hdl_code = hdl_code + "\r\n"
+        if (self.constant):
+            hdl_code = hdl_code + self.constant.code()
+            hdl_code = hdl_code + "\r\n"
         if (self.customTypes):
             hdl_code = hdl_code + self.customTypes.code()
             hdl_code = hdl_code + "\r\n"
         if (self.component):
             hdl_code = hdl_code + self.component.code()
-            hdl_code = hdl_code + "\r\n"
-        if (self.constant):
-            hdl_code = hdl_code + self.constant.code()
             hdl_code = hdl_code + "\r\n"
         if (self.signal):
             hdl_code = hdl_code + self.signal.code()

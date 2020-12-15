@@ -334,7 +334,7 @@ class registerBank(vhdl.basicVHDL):
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
 
-        self.architecture.customTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        self.architecture.customTypes.add("type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
         self.architecture.signal.add("wready_s", "std_logic")
@@ -357,10 +357,10 @@ class registerBank(vhdl.basicVHDL):
         self.architecture.signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
         self.architecture.signal.add("rtimeout_s", "std_logic")
 
-        self.architecture.signal.add("regwrite_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regread_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regclear_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regset_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
 
         self.architecture.signal.add("regread_en", "std_logic")
         self.architecture.signal.add("regwrite_en", "std_logic")
