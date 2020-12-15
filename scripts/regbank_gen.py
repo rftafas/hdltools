@@ -28,7 +28,7 @@ TemplateCode = """
     S_AXI_BRESP   <= bresp_s;
     S_AXI_BVALID  <= bvalid_s;
     S_AXI_ARREADY <= arready_s;
-    S_AXI_RDATA   <= rready_s;
+    S_AXI_RDATA   <= rdata_s;
     S_AXI_RRESP   <= rresp_s;
     S_AXI_RVALID  <= rvalid_s;
 
@@ -46,7 +46,7 @@ TemplateCode = """
                 awaddr_s <= S_AXI_AWADDR;
             elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
                 awready_s <= '1';
-            elsif timeout_s = '1' then
+            elsif wtimeout_s = '1' then
                 awready_s <= '1';
             end if;
         end if;
@@ -61,7 +61,7 @@ TemplateCode = """
                 wready_s <= '0';
             elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
                 wready_s <= '1';
-            elsif timeout_s = '1' then
+            elsif wtimeout_s = '1' then
                 wready_s <= '1';
             end if;
         end if;
@@ -81,7 +81,7 @@ TemplateCode = """
                 bvalid_s <= '1';
                 bresp_s  <= "10";
                 bresp_timer_sr <= ( 0 => '1', others=>'0' );
-            elsif bvalid_s = '1 then
+            elsif bvalid_s = '1' then
                 bresp_timer_sr <= bresp_timer_sr(14 downto 0) & bresp_timer_sr(15);
                 if S_AXI_BREADY = '1' or bresp_timer_sr(15) = '0' then
                     bvalid_s <= '0';
@@ -101,7 +101,7 @@ TemplateCode = """
             if wready_s = '1' or awready_s = '1' then
                 wtimeout_sr <= ( 0 => '1', others=>'0');
             elsif wready_s = '1' and awready_s = '1' then
-                wtimeout_sr (others=>'0');
+                wtimeout_sr <= (others=>'0');
             else
                 wtimeout_sr <= wtimeout_sr(14 downto 0) & wtimeout_sr(15);
             end if;
@@ -212,21 +212,21 @@ TemplateCode = """
             reg_tmp  := (others => (others => '0'));
             reg_lock := (others => (others => '0'));
         elsif (rising_edge (S_AXI_ACLK)) then
-            for j in regread_s'range then
-                for k in regread_s(0)'range then'
+            for j in regread_s'range loop
+                for k in regread_s(0)'range loop
                     if regclear_s(j)(k) = '1' then
-                        reg_tmp(j)(k)  <= '0';
-                        reg_lock(j)(k) <= '0';
+                        reg_tmp(j)(k)  := '0';
+                        reg_lock(j)(k) := '0';
                     elsif regset_s(j)(k) = '1' then
-                        reg_tmp(j)(k)  <= '1';
-                        reg_lock(j)(k) <= '1';
+                        reg_tmp(j)(k)  := '1';
+                        reg_lock(j)(k) := '1';
                     elsif reg_lock(j)(k) = '0' then
-                        reg_tmp(j)(k) <= regread_s(j)(k);
+                        reg_tmp(j)(k) := regread_s(j)(k);
                     end if;
                 end loop;
             end loop;
             --
-            loc_addr := to_integer(axi_araddr(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB);
+            loc_addr := to_integer(araddr_s(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB));
             if regread_en = '1' then
                 S_AXI_RDATA  <= reg_tmp(loc_addr);
             end if;
@@ -301,9 +301,10 @@ class registerBank(vhdl.basicVHDL):
         self.addrsize = math.ceil(math.log(RegisterNumber,2))
 
         self.library.add("IEEE")
+        self.library["IEEE"].package.add("std_logic_1164")
         self.library["IEEE"].package.add("numeric_std")
-        self.library.add("stdexpert")
-        self.library["stdexpert"].package.add("std_logic_expert")
+        self.library.add("expert")
+        self.library["expert"].package.add("std_logic_expert")
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
         self.entity.port.add("S_AXI_ACLK", "in", "std_logic")
@@ -312,6 +313,7 @@ class registerBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_AWPROT", "in", "std_logic_vector(2 downto 0)")
         self.entity.port.add("S_AXI_AWVALID", "in", "std_logic")
         self.entity.port.add("S_AXI_AWREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_WDATA", "in", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
         self.entity.port.add("S_AXI_WSTRB", "in", "std_logic_vector((C_S_AXI_DATA_WIDTH/8)-1 downto 0)")
         self.entity.port.add("S_AXI_WVALID", "in", "std_logic")
         self.entity.port.add("S_AXI_WREADY", "out", "std_logic")
@@ -330,28 +332,35 @@ class registerBank(vhdl.basicVHDL):
 
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
+        self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
 
         self.architecture.customTypes.add("type reg_t is array (NATURAL RANGE<>) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
         self.architecture.signal.add("wready_s", "std_logic")
-        self.architecture.signal.add("bresp_s", "std_logic_vector(1 downto 0)")
-        self.architecture.signal.add("bvalid_s", "std_logic")
         self.architecture.signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
         self.architecture.signal.add("wtimeout_s", "std_logic")
 
+        self.architecture.signal.add("bresp_s", "std_logic_vector(1 downto 0)")
+        self.architecture.signal.add("bvalid_s", "std_logic")
+        self.architecture.signal.add("bresp_timer_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("wtimeout_s", "std_logic")
+
+
         self.architecture.signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("arready_s", "std_logic")
+        self.architecture.signal.add("rdata_s", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
+
         self.architecture.signal.add("rready_s", "std_logic")
         self.architecture.signal.add("rresp_s", "std_logic_vector(1 downto 0)")
         self.architecture.signal.add("rvalid_s", "std_logic")
         self.architecture.signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
         self.architecture.signal.add("rtimeout_s", "std_logic")
 
-        self.architecture.signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regread_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regclear_s", "reg_t", "(others=>(others=>'0'))")
-        self.architecture.signal.add("regset_s", "reg_t", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regwrite_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regread_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regclear_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
+        self.architecture.signal.add("regset_s", "reg_t(REG_NUM-1 downto 0)", "(others=>(others=>'0'))")
 
         self.architecture.signal.add("regread_en", "std_logic")
         self.architecture.signal.add("regwrite_en", "std_logic")
@@ -382,7 +391,7 @@ class registerBank(vhdl.basicVHDL):
             for bit in register:
                 try:
                     if register[bit].ExternalClear:
-                        self.entity.port.add(register[bit].radix+"_clear_i",register[bit].direction,register[bit].vhdlType)
+                        self.entity.port.add(register[bit].radix+"_clear_i","in",register[bit].vhdlType)
                 except:
                     pass
 
@@ -398,12 +407,12 @@ class registerBank(vhdl.basicVHDL):
                         register[bit].name = register[bit].name+"(%d downto 0)" %  (register[bit].size-1)
                     if "ReadOnly" in register[bit].RegType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
-                    elif "ReadWrite" in register[bit].RegType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" % (index,VectorRange,index,VectorRange))
                     elif "SplitReadWrite" in register[bit].RegType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].radix+GetSuffix("out"),index,VectorRange))
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].radix+GetSuffix("in")))
+                    elif "ReadWrite" in register[bit].RegType:
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name,index,VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" % (index,VectorRange,index,VectorRange))
                     elif "Write2Clear" in register[bit].RegType:
                         pass #self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                     elif "Write2Pulse" in register[bit].RegType:
