@@ -491,8 +491,8 @@ if __name__ == '__main__':
     #wee can use just a slice on any type. Lets create a slice.
     #we will use 2 16bit register.
     myregbank.add(4,"SlicedReg")
-    myregbank.reg[4].add("pulse","Write2Pulse",0,16)
-    myregbank.reg[4].add("pulse","Write2Pulse",16,16)
+    myregbank.reg[4].add("pulse1","Write2Pulse",0,16)
+    myregbank.reg[4].add("pulse2","Write2Pulse",16,16)
 
     #And we can create a very mixed register:
     #Bit 0 is goint to be a pulsed register. Write one, it pulses output.
