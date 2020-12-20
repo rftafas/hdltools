@@ -529,6 +529,7 @@ class ComponentInstanceList(dict):
         for j in self.list:
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
+# ------------------- Package -----------------------
 
 # ------------------- Entity -----------------------
 
