@@ -69,7 +69,7 @@ class LibraryPackageList(dict):
     def add(self, name, *args):
         self[name] = LibraryPackageObj(name)
         if args:
-            self[name].operator = arg[0]
+            self[name].operator = args[0]
 
 
 class LibraryObj:

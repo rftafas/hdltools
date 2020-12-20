@@ -262,6 +262,7 @@ class RegisterBit:
         self.vhdlType = "std_logic"
         self.name = name+GetSuffix(self.direction)
         self.radix = name
+        self.size = 1
 
 
 class RegisterSlice(RegisterBit):
