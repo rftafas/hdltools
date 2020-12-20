@@ -314,10 +314,10 @@ class RegisterBank(vhdl.basicVHDL):
 
         # Libraries
         self.library.add("IEEE")
-        self.library["IEEE"].package.add("std_logic_1164")
-        self.library["IEEE"].package.add("numeric_std")
+        self.library["IEEE"].libPkg.add("std_logic_1164")
+        self.library["IEEE"].libPkg.add("numeric_std")
         self.library.add("expert")
-        self.library["expert"].package.add("std_logic_expert")
+        self.library["expert"].libPkg.add("std_logic_expert")
         self.library.add("work")
         self.library["work"].libPkg.add(self.pkg.name)
         # Generics

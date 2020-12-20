@@ -78,13 +78,13 @@ class LibraryPackageList(dict):
 class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.package = LibraryPackageList()
+        self.libPkg = LibraryPackageList()
 
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
-        for j in self.package:
-            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
+        for j in self.libPkg:
+            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.libPkg[j].operator))
         return hdl_code
 
 
