@@ -47,7 +47,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def dictCode(DictInput, indent_level=0):
+def DictCode(DictInput):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -128,6 +128,7 @@ class PortObj:
     def code(self, indent_level=0):
         hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
         return hdl_code
+
 
 
 class PortList(dict):
@@ -493,7 +494,7 @@ class InstanceObjList(dict):
     def add(self, name, type, value):
         self[name] = InstanceObj(name, value)
 
-    def code(self, indent_level=0):
+    def code(self):
         return VHDLenum(self)
 
 
