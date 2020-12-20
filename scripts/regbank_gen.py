@@ -236,14 +236,14 @@ TemplateCode = """
 """
 
 
-def getDirection(type):
+def GetDirection(type):
     if type in ("ReadOnly", "Write2Clear", "SplitReadWrite"):
         return "in"
     else:
         return "out"
 
 
-def getSuffix(direction):
+def GetSuffix(direction):
     if direction in ("in"):
         return "_i"
     else:
@@ -264,6 +264,7 @@ class RegisterBit:
         self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
+
 
 class RegisterSlice(RegisterBit):
     def __init__(self, name, type, size):
@@ -383,7 +384,7 @@ class RegisterBank(vhdl.BasicVHDL):
     def add(self, number, name):
         self.reg.add(number, RegisterWord(name, self.datasize))
 
-    def registerPortAdd(self):
+    def RegisterPortAdd(self):
         for index in self.reg:
             register = self.reg[index]
             for bit in register:
