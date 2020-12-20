@@ -47,7 +47,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def DictCode(DictInput):
+def DictCode(DictInput, indent_level=0):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -494,7 +494,7 @@ class InstanceObjList(dict):
     def add(self, name, type, value):
         self[name] = InstanceObj(name, value)
 
-    def code(self):
+    def code(self, indent_level=0):
         return VHDLenum(self)
 
 
