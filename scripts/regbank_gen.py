@@ -482,6 +482,9 @@ class RegisterBank(vhdl.BasicVHDL):
                         self.pkg.rec["reg_i"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
                     elif self.reg[i][j].regType == "ReadWrite":
                         self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+                    elif self.reg[i][j].regType == "SplitReadWrite":
+                        self.pkg.rec["reg_i"].add(self.reg[i].name + "_" + self.reg[i][j].radix + GetSuffix("in"), self.reg[i][j].vhdlType)
+                        self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].radix + GetSuffix("out"), self.reg[i][j].vhdlType)
                     elif self.reg[i][j].regType == "Write2Clear":
                         self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
                         self.pkg.rec["reg_i"].add("set_" + self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
@@ -527,17 +530,17 @@ if __name__ == '__main__':
     # myregbank.add(REG_ADDRESS,"golden")
     # myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)
     myregbank.add(0, "golden")
-    myregbank.reg[0].add("golden", "ReadOnly", 0, 32)
+    myregbank.reg[0].add("g1", "ReadOnly", 0, 32)
     # this is an example for a read/write generic register.
     myregbank.add(1, "myReadWrite1")
-    myregbank.reg[1].add("myReadWrite1", "ReadWrite", 0, 32)
+    myregbank.reg[1].add("rw1", "ReadWrite", 0, 32)
     # this is an example for a read/write generic register with external clear.
     myregbank.add(2, "myReadWrite2")
-    myregbank.reg[2].add("myReadWrite2", "ReadWrite", 0, 32)
+    myregbank.reg[2].add("rw2", "ReadWrite", 0, 32)
     myregbank.reg[2].externalClear = True
     # this is an example of a write to clear register
     myregbank.add(3, "MyWriteToClear")
-    myregbank.reg[3].add("MyWriteToClear", "Write2Clear", 0, 32)
+    myregbank.reg[3].add("w2c1", "Write2Clear", 0, 32)
     # wee can use just a slice on any type. Lets create a slice.
     # we will use 2 16bit register.
     myregbank.add(4, "SlicedReg")
