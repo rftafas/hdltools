@@ -55,7 +55,7 @@ def DictCode(DictInput):
     return hdl_code
 
 
-class PackageObj:
+class LibraryPackageObj:
     def __init__(self, name, *args):
         self.source = "File Location Unknown."
         self.name = name
@@ -65,17 +65,17 @@ class PackageObj:
             self.operator = "all"
 
 
-class PackageList(dict):
+class LibraryPackageList(dict):
     def add(self, name, *args):
-        self[name] = PackageObj(name)
+        self[name] = LibraryPackageObj(name)
         if args:
             self[name].operator = arg[0]
 
 
-class libraryObj:
+class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.package = PackageList()
+        self.package = LibraryPackageList()
 
     def code(self):
         hdl_code = ""
@@ -85,9 +85,9 @@ class libraryObj:
         return hdl_code
 
 
-class libraryList(dict):
+class LibraryList(dict):
     def add(self, name):
-        self[name] = libraryObj(name)
+        self[name] = LibraryObj(name)
 
     def code(self):
         return DictCode(self) + "\r\n"
@@ -131,7 +131,7 @@ class PortList(dict):
         return VHDLenum(self)
 
 
-class constantObj:
+class ConstantObj:
     def __init__(self, name, type, init):
         self.name = name
         self.type = type
@@ -141,7 +141,7 @@ class constantObj:
         return indent(1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
 
 
-class signalObj:
+class SignalObj:
     def __init__(self, name, type, *args):
         self.name = name
         self.type = type
@@ -173,17 +173,17 @@ class VariableObj:
             return indent(1) + ("variable %s : %s;\r\n" % (self.name, self.type))
 
 
-class constantList(dict):
+class ConstantList(dict):
     def add(self, name, type, init):
-        self[name] = constantObj(name, type, init)
+        self[name] = ConstantObj(name, type, init)
 
     def code(self):
         return DictCode(self)
 
 
-class signalList(dict):
+class SignalList(dict):
     def add(self, name, type, *args):
-        self[name] = signalObj(name, type, *args)
+        self[name] = SignalObj(name, type, *args)
 
     def code(self):
         return DictCode(self)
@@ -197,7 +197,7 @@ class VariableList(dict):
         return DictCode(self)
 
 
-class genericCodeBlock:
+class GenericCodeBlock:
     def __init__(self, indent):
         self.list = []
         self.indent = indent
@@ -242,7 +242,7 @@ class componentObj:
         return hdl_code
 
 
-class componentList(dict):
+class ComponentList(dict):
     def add(self, name):
         self[name] = componentObj(name)
 
@@ -271,7 +271,7 @@ class InstanceObjList(dict):
         return VHDLenum(self)
 
 
-class componentInstanceObj:
+class ComponentInstanceObj:
     def __init__(self, instance_name, component_name):
         self.instance_name = instance_name
         self.component_name = component_name
@@ -293,9 +293,9 @@ class componentInstanceObj:
         return hdl_code
 
 
-class componentInstanceList(dict):
+class ComponentInstanceList(dict):
     def add(self, name):
-        self[name] = componentInstanceObj(name)
+        self[name] = ComponentInstanceObj(name)
 
     def code(self):
         hdl_code = ""
@@ -333,23 +333,23 @@ class Entity:
         return hdl_code
 
 
-class architecture:
+class Architecture:
     def __init__(self, name, entity_name):
         self.name = name
         self.entityName = entity_name
-        self.signal = signalList()
-        self.constant = constantList()
-        self.component = componentList()
+        self.signal = SignalList()
+        self.constant = ConstantList()
+        self.component = ComponentList()
         self.functions = ""
         self.procedures = ""
-        self.customTypes = genericCodeBlock(1)
-        self.declarationHeader = genericCodeBlock(1)
-        self.declarationFooter = genericCodeBlock(1)
-        self.bodyCodeHeader = genericCodeBlock(1)
+        self.customTypes = GenericCodeBlock(1)
+        self.declarationHeader = GenericCodeBlock(1)
+        self.declarationFooter = GenericCodeBlock(1)
+        self.bodyCodeHeader = GenericCodeBlock(1)
         self.instances = ""
         self.blocks = ""
         self.process = ""
-        self.bodyCodeFooter = genericCodeBlock(1)
+        self.bodyCodeFooter = GenericCodeBlock(1)
 
     def code(self):
         hdl_code = ""
@@ -389,12 +389,12 @@ class architecture:
 
 class basicVHDL:
     def __init__(self, entity_name, architecture_name):
-        self.library = libraryList()
+        self.library = LibraryList()
         self.entity = Entity(entity_name)
-        self.architecture = architecture(architecture_name, entity_name)
+        self.architecture = Architecture(architecture_name, entity_name)
 
     def instance(self, instance_name, generic_list, port_list):
-        self.tmpinst = componentInstanceObj()
+        self.tmpinst = ComponentInstanceObj()
         for j in self.entity.generic.list:
             self.tmpinst.generic.add(j.name, j.value)
         for j in generic_list:
