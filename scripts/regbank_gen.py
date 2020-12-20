@@ -424,21 +424,24 @@ class RegisterBank(vhdl.basicVHDL):
                         VectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                         register[bit].name = register[bit].name+"(%d downto 0)" % (register[bit].size-1)
                     if "ReadOnly" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index, VectorRange, register[bit].name))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
+                                                             (index, VectorRange, "reg_i." + register[bit].name))
                     elif "SplitReadWrite" in register[bit].regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
-                                                             (register[bit].radix+GetSuffix("out"), index, VectorRange))
+                                                             ("reg_o." + register[bit].radix+GetSuffix("out"), index, VectorRange))
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
-                                                             (index, VectorRange, register[bit].radix+GetSuffix("in")))
+                                                             (index, VectorRange, "reg_i." + register[bit].radix+GetSuffix("in")))
                     elif "ReadWrite" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name, index, VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                             ("reg_o." + register[bit].name, index, VectorRange))
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" %
                                                              (index, VectorRange, index, VectorRange))
                     elif "Write2Clear" in register[bit].regType:
                         # self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                         pass
                     elif "Write2Pulse" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].name, index, VectorRange))
+                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                             ("reg_o." + register[bit].name, index, VectorRange))
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "")
 
     def RegisterSetConnection(self):
