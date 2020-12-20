@@ -1,6 +1,6 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
-# Modified by Tomas Perpetuo Correa
+# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -47,7 +47,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def DictCode(DictInput, indent_level=0):
+def DictCode(DictInput):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -76,13 +76,13 @@ class LibraryPackageList(dict):
 class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.libPkg = LibraryPackageList()
+        self.package = LibraryPackageList()
 
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
-        for j in self.libPkg:
-            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.libPkg[j].operator))
+        for j in self.package:
+            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
         return hdl_code
 
 
@@ -494,7 +494,7 @@ class InstanceObjList(dict):
     def add(self, name, type, value):
         self[name] = InstanceObj(name, value)
 
-    def code(self, indent_level=0):
+    def code(self):
         return VHDLenum(self)
 
 
@@ -529,7 +529,6 @@ class ComponentInstanceList(dict):
         for j in self.list:
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
-# ------------------- Package -----------------------
 
 # ------------------- Entity -----------------------
 
