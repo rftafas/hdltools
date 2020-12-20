@@ -260,7 +260,7 @@ class RegisterBit:
             print(RegisterTypeSet)
         self.externalClear = False
         self.direction = GetDirection(type)
-        self.vhdlType = "std_logic"
+        self.vhdlType = "std_logic_vector(0 downto 0)"
         self.name = name+GetSuffix(self.direction)
         self.radix = name
         self.size = 1
