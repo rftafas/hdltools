@@ -54,6 +54,8 @@ def DictCode(DictInput):
         hdl_code = hdl_code + DictInput[j].code()
     return hdl_code
 
+# ------------------- Library -----------------------
+
 
 class LibraryPackageObj:
     def __init__(self, name, *args):
@@ -93,6 +95,7 @@ class LibraryList(dict):
         return DictCode(self) + "\r\n"
 
 
+# ------------------- Generic -----------------------
 class GenericObj:
     def __init__(self, name, type, init_value):
         self.name = name
@@ -104,6 +107,15 @@ class GenericObj:
         return hdl_code
 
 
+class GenericList(dict):
+    def add(self, name, type, init):
+        self[name] = GenericObj(name, type, init)
+
+    def code(self):
+        return VHDLenum(self)
+
+
+# ------------------- Port -----------------------
 class PortObj:
     def __init__(self, name, direction, type):
         self.name = name
@@ -115,14 +127,6 @@ class PortObj:
         return hdl_code
 
 
-class GenericList(dict):
-    def add(self, name, type, init):
-        self[name] = GenericObj(name, type, init)
-
-    def code(self):
-        return VHDLenum(self)
-
-
 class PortList(dict):
     def add(self, name, direction, type):
         self[name] = PortObj(name, direction, type)
@@ -131,6 +135,7 @@ class PortList(dict):
         return VHDLenum(self)
 
 
+# ------------------- Constant -----------------------
 class ConstantObj:
     def __init__(self, name, type, init):
         self.name = name
@@ -141,6 +146,15 @@ class ConstantObj:
         return indent(1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
 
 
+class ConstantList(dict):
+    def add(self, name, type, init):
+        self[name] = ConstantObj(name, type, init)
+
+    def code(self):
+        return DictCode(self)
+
+
+# ------------------- Signals -----------------------
 class SignalObj:
     def __init__(self, name, type, *args):
         self.name = name
@@ -157,6 +171,42 @@ class SignalObj:
             return indent(1) + ("signal %s : %s;\r\n" % (self.name, self.type))
 
 
+class SignalList(dict):
+    def add(self, name, type, *args):
+        self[name] = SignalObj(name, type, *args)
+
+    def code(self):
+        return DictCode(self)
+
+# ------------------- Records -----------------------
+
+
+class RecordObj:
+    def __init__(self, name, type):
+        self.name = name
+        self.type = type
+
+    def code(self, indent_level=0):
+        return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
+
+
+class RecordList(dict):
+    def __init__(self, name="empty"):
+        self.name = name
+
+    def add(self, name, type):
+        self[name] = RecordObj(name, type)
+
+    def code(self, indent_level=0):
+        hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
+        hdl_code = hdl_code + DictCode(self, indent_level)
+        hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+# ------------------- Variables -----------------------
+
+
 class VariableObj:
     def __init__(self, name, type, *args):
         self.name = name
@@ -171,22 +221,6 @@ class VariableObj:
             return indent(1) + ("variable %s : %s := %s;\r\n" % (self.name, self.type, self.init))
         else:
             return indent(1) + ("variable %s : %s;\r\n" % (self.name, self.type))
-
-
-class ConstantList(dict):
-    def add(self, name, type, init):
-        self[name] = ConstantObj(name, type, init)
-
-    def code(self):
-        return DictCode(self)
-
-
-class SignalList(dict):
-    def add(self, name, type, *args):
-        self[name] = SignalObj(name, type, *args)
-
-    def code(self):
-        return DictCode(self)
 
 
 class VariableList(dict):
@@ -210,6 +244,8 @@ class GenericCodeBlock:
         for j in self.list:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
         return hdl_code
+
+# ------------------- Component -----------------------
 
 
 class componentObj:
@@ -253,6 +289,7 @@ class ComponentList(dict):
         return hdl_code
 
 
+# ------------------- Instance -----------------------
 class InstanceObj:
     def __init__(self, name, value):
         self.name = name
@@ -302,7 +339,38 @@ class ComponentInstanceList(dict):
         for j in self.list:
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
+# ------------------- Package -----------------------
 
+
+class Package:
+    def __init__(self, name):
+        self.name = name
+        self.constant = ConstantList()
+        self.rec = RecordList()
+
+    def addRecord(self, name):
+        self.rec[name] = RecordList(name)
+
+    def code(self, indent_level=0):
+        hdl_code = indent(0) + ("package %s is\r\n" % self.name)
+        if (self.constant):
+            hdl_code = hdl_code + self.constant.code()
+        else:
+            hdl_code = hdl_code + indent(1) + ("--constant (\r\n")
+            hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
+            hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        for i in self.rec:
+            if (self.rec[i]):
+                hdl_code = hdl_code + self.rec[i].code(2)
+
+        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+        return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
+
+
+# ------------------- Entity -----------------------
 
 class Entity:
     def __init__(self, name):
@@ -331,6 +399,8 @@ class Entity:
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
+
+# ------------------- Architecture -----------------------
 
 
 class Architecture:
