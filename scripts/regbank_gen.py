@@ -308,6 +308,9 @@ class RegisterBank(vhdl.basicVHDL):
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber, 2))
+        self.pkg = vhdl.Package(entity_name + "_pkg")
+        self.pkg.addRecord("reg_i")
+        self.pkg.addRecord("reg_o")
 
         # Libraries
         self.library.add("IEEE")
@@ -315,6 +318,8 @@ class RegisterBank(vhdl.basicVHDL):
         self.library["IEEE"].package.add("numeric_std")
         self.library.add("expert")
         self.library["expert"].package.add("std_logic_expert")
+        self.library.add("work")
+        self.library["work"].libPkg.add(self.pkg.name)
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
@@ -340,7 +345,8 @@ class RegisterBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-
+        self.entity.port.add("reg_i", "in", "reg_i_t")
+        self.entity.port.add("reg_o", "out", "reg_o_t")
         # Architecture
         # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
@@ -469,6 +475,20 @@ class RegisterBank(vhdl.basicVHDL):
                                                              (index, VectorRange, defaultvalue, clearname, elsevalue))
         self.architecture.bodyCodeFooter.add("")
 
+    def createRecordsFromRegisters(self):
+        for i in self.reg:
+            for j in self.reg[i]:
+                if self.reg[i][j] != ["empty"]:
+                    if self.reg[i][j].regType == "ReadOnly":
+                        self.pkg.rec["reg_i"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+                    elif self.reg[i][j].regType == "ReadWrite":
+                        self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+                    elif self.reg[i][j].regType == "Write2Clear":
+                        self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+                        self.pkg.rec["reg_i"].add("set_" + self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+                    elif self.reg[i][j].regType == "Write2Pulse":
+                        self.pkg.rec["reg_o"].add(self.reg[i].name + "_" + self.reg[i][j].name, self.reg[i][j].vhdlType)
+
     def code(self):
         if (not self.generate_code):
             self.RegisterPortAdd()
@@ -480,7 +500,22 @@ class RegisterBank(vhdl.basicVHDL):
         return vhdl.basicVHDL.code(self)
 
     def write_file(self):
-        return vhdl.basicVHDL.write_file(self)
+        hdl_code = self.library["IEEE"].code()
+        hdl_code = hdl_code + self.pkg.code()
+        hdl_code = hdl_code + self.code()
+
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+
+        output_file_name = "output/"+self.entity.name+".vhd"
+        # to do: check if file exists. If so, emit a warning and
+        # check if must clear it.
+        output_file = open(output_file_name, "w+")
+        for line in hdl_code:
+            output_file.write(line)
+
+        output_file.close()
+        return True
 
 
 if __name__ == '__main__':
