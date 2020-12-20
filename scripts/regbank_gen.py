@@ -309,13 +309,16 @@ class RegisterBank(vhdl.basicVHDL):
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber, 2))
 
+        # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].package.add("std_logic_1164")
         self.library["IEEE"].package.add("numeric_std")
         self.library.add("expert")
         self.library["expert"].package.add("std_logic_expert")
+        # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
+        # Ports
         self.entity.port.add("S_AXI_ACLK", "in", "std_logic")
         self.entity.port.add("S_AXI_ARESETN", "in", "std_logic")
         self.entity.port.add("S_AXI_AWADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
@@ -338,11 +341,14 @@ class RegisterBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
 
+        # Architecture
+        # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
-
+        # Custom type
         self.architecture.customTypes.add("type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        # Signals
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
         self.architecture.signal.add("wready_s", "std_logic")
