@@ -409,7 +409,7 @@ class RegisterBank(vhdl.basicVHDL):
             for bit in register:
                 try:
                     if register[bit].externalClear:
-                        self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
+                        self.pkg.rec["reg_i"].add(register[bit].radix+"_clear_i", register[bit].vhdlType)
                 except:
                     pass
 
@@ -472,7 +472,7 @@ class RegisterBank(vhdl.basicVHDL):
                         elsevalue = "regwrite_s(%d)(%s)" % (index, VectorRange)
                     if register[bit].externalClear:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
-                                                             (index, VectorRange, defaultvalue, clearname, elsevalue))
+                                                             (index, VectorRange, defaultvalue, "reg_i." + clearname, elsevalue))
         self.architecture.bodyCodeFooter.add("")
 
     def createRecordsFromRegisters(self):
@@ -491,7 +491,8 @@ class RegisterBank(vhdl.basicVHDL):
 
     def code(self):
         if (not self.generate_code):
-            self.RegisterPortAdd()
+            # commented out when using Records + Package
+            # self.RegisterPortAdd()
             self.RegisterClearAdd()
             self.RegisterConnection()
             self.RegisterSetConnection()
@@ -565,6 +566,8 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("ReadAWriteB", "SplitReadWrite", 0, 32)
 
+    myregbank.createRecordsFromRegisters()
+    print(myregbank.pkg.code())
     print(myregbank.code())
 
     myregbank.write_file()
