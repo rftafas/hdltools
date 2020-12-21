@@ -302,15 +302,18 @@ class RegisterList(dict):
 
 
 class RegisterBank(vhdl.basicVHDL):
-    def __init__(self, entity_name, architecture_name, datasize, RegisterNumber):
+    def __init__(self, entity_name, architecture_name, datasize, registerNumber, useRecords=True):
         vhdl.basicVHDL.__init__(self, entity_name, architecture_name)
         self.generate_code = False
         self.reg = RegisterList()
         self.datasize = datasize
-        self.addrsize = math.ceil(math.log(RegisterNumber, 2))
-        self.pkg = vhdl.Package(entity_name + "_pkg")
-        self.pkg.addRecord("reg_i")
-        self.pkg.addRecord("reg_o")
+        self.addrsize = math.ceil(math.log(registerNumber, 2))
+
+        self.useRecords = useRecords
+        if self.useRecords:
+            self.pkg = vhdl.Package(entity_name + "_pkg")
+            self.pkg.addRecord("reg_i")
+            self.pkg.addRecord("reg_o")
 
         # Libraries
         self.library.add("IEEE")
@@ -318,8 +321,9 @@ class RegisterBank(vhdl.basicVHDL):
         self.library["IEEE"].libPkg.add("numeric_std")
         self.library.add("expert")
         self.library["expert"].libPkg.add("std_logic_expert")
-        self.library.add("work")
-        self.library["work"].libPkg.add(self.pkg.name)
+        if self.useRecords:
+            self.library.add("work")
+            self.library["work"].libPkg.add(self.pkg.name)
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
@@ -345,8 +349,10 @@ class RegisterBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-        self.entity.port.add("reg_i", "in", "reg_i_t")
-        self.entity.port.add("reg_o", "out", "reg_o_t")
+        if self.useRecords:
+            self.entity.port.add("reg_i", "in", "reg_i_t")
+            self.entity.port.add("reg_o", "out", "reg_o_t")
+
         # Architecture
         # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
@@ -409,7 +415,10 @@ class RegisterBank(vhdl.basicVHDL):
             for bit in register:
                 try:
                     if register[bit].externalClear:
-                        self.pkg.rec["reg_i"].add("clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
+                        if self.useRecords:
+                            self.pkg.rec["reg_i"].add("clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
+                        else:
+                            self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
                 except:
                     pass
 
@@ -424,24 +433,43 @@ class RegisterBank(vhdl.basicVHDL):
                         VectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                         register[bit].name = register[bit].name+"(%d downto 0)" % (register[bit].size-1)
                     if "ReadOnly" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
-                                                             (index, VectorRange, "reg_i." + register.name + "_" + register[bit].name))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, "reg_i." + register.name + "_" + register[bit].name))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, register[bit].name))
                     elif "SplitReadWrite" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
-                                                             ("reg_o." + register.name + "_" + register[bit].radix+GetSuffix("out"), index, VectorRange))
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
-                                                             (index, VectorRange, "reg_i." + register.name + "_" + register[bit].radix+GetSuffix("in")))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 ("reg_o." + register.name + "_" + register[bit].radix+GetSuffix("out"), index, VectorRange))
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, "reg_i." + register.name + "_" + register[bit].radix+GetSuffix("in")))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 (register[bit].radix+GetSuffix("out"), index, VectorRange))
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, register[bit].radix+GetSuffix("in")))
                     elif "ReadWrite" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
-                                                             ("reg_o." + register.name + "_" + register[bit].name, index, VectorRange))
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" %
-                                                             (index, VectorRange, index, VectorRange))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 ("reg_o." + register.name + "_" + register[bit].name, index, VectorRange))
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" %
+                                                                 (index, VectorRange, index, VectorRange))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 (register[bit].name, index, VectorRange))
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" %
+                                                                 (index, VectorRange, index, VectorRange))
                     elif "Write2Clear" in register[bit].regType:
-                        # self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index,VectorRange,register[bit].name))
                         pass
                     elif "Write2Pulse" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
-                                                             ("reg_o." + register.name + "_" + register[bit].name, index, VectorRange))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 ("reg_o." + register.name + "_" + register[bit].name, index, VectorRange))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
+                                                                 (register[bit].name, index, VectorRange))
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "")
 
     def RegisterSetConnection(self):
@@ -454,8 +482,12 @@ class RegisterBank(vhdl.basicVHDL):
                     if isinstance(register[bit], RegisterSlice):
                         VectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                     if "Write2Clear" in register[bit].regType:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" %
-                                                             (index, VectorRange, "reg_i.set_" + register.name + "_" + register[bit].name))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, "reg_i.set_" + register.name + "_" + register[bit].name))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" %
+                                                                 (index, VectorRange, register[bit].name))
         self.architecture.bodyCodeFooter.add("")
 
     def RegisterClearConnection(self):
@@ -464,6 +496,7 @@ class RegisterBank(vhdl.basicVHDL):
             register = self.reg[index]
             for bit in register:
                 if isinstance(register[bit], RegisterBit):
+                    clearname = register[bit].radix+"_clear_i"
                     defaultvalue = "'1'"
                     elsevalue = "'0'"
                     VectorRange = str(bit)
@@ -473,10 +506,16 @@ class RegisterBank(vhdl.basicVHDL):
                     if "Write2Clear" in register[bit].regType:
                         elsevalue = "regwrite_s(%d)(%s)" % (index, VectorRange)
                     if register[bit].externalClear:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
-                                                             (index, VectorRange, defaultvalue,
-                                                              "reg_i.clear_" + register.name + "_" + register[bit].radix + "_i",
-                                                              elsevalue))
+                        if self.useRecords:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
+                                                                 (index, VectorRange, defaultvalue,
+                                                                  "reg_i.clear_" + register.name + "_" + register[bit].radix + "_i",
+                                                                  elsevalue))
+                        else:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1)
+                                                                 + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;"
+                                                                 % (index, VectorRange, defaultvalue, clearname, elsevalue))
+
         self.architecture.bodyCodeFooter.add("")
 
     def createRecordsFromRegisters(self):
@@ -500,17 +539,25 @@ class RegisterBank(vhdl.basicVHDL):
     def code(self):
         if (not self.generate_code):
             # commented out when using Records + Package
-            # self.RegisterPortAdd()
+            if self.useRecords:
+                self.createRecordsFromRegisters()
+            else:
+                self.RegisterPortAdd()
             self.RegisterClearAdd()
             self.RegisterConnection()
             self.RegisterSetConnection()
             self.RegisterClearConnection()
             self.generate_code = True
-        return vhdl.basicVHDL.code(self)
+
+        if self.useRecords:
+            hdl_code = self.pkg.code()
+            hdl_code = hdl_code + vhdl.basicVHDL.code(self)
+        else:
+            hdl_code = vhdl.basicVHDL.code(self)
+        return hdl_code
 
     def write_file(self):
         hdl_code = self.library["IEEE"].code()
-        hdl_code = hdl_code + self.pkg.code()
         hdl_code = hdl_code + self.code()
 
         if (not os.path.exists("output")):
@@ -532,7 +579,7 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank", "rtl", 32, 8)
+    myregbank = RegisterBank("myregbank", "rtl", 32, 8, False)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
@@ -574,8 +621,6 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("rAwB", "SplitReadWrite", 0, 32)
 
-    myregbank.createRecordsFromRegisters()
-    print(myregbank.pkg.code())
     print(myregbank.code())
 
     myregbank.write_file()
