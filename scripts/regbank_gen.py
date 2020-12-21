@@ -307,10 +307,13 @@ class RegisterBank(vhdl.BasicVHDL):
         self.generate_code = False
         self.reg = RegisterList()
         self.datasize = datasize
-        self.addrsize = math.ceil(math.log(RegisterNumber, 2))
-        self.pkg = vhdl.Package(entity_name + "_pkg")
-        self.pkg.addRecord("reg_i")
-        self.pkg.addRecord("reg_o")
+        self.addrsize = math.ceil(math.log(registerNumber, 2))
+
+        self.useRecords = useRecords
+        if self.useRecords:
+            self.pkg = vhdl.Package(entity_name + "_pkg")
+            self.pkg.addRecord("reg_i")
+            self.pkg.addRecord("reg_o")
 
         # Libraries
         self.library.add("IEEE")
@@ -318,8 +321,9 @@ class RegisterBank(vhdl.BasicVHDL):
         self.library["IEEE"].libPkg.add("numeric_std")
         self.library.add("expert")
         self.library["expert"].libPkg.add("std_logic_expert")
-        self.library.add("work")
-        self.library["work"].libPkg.add(self.pkg.name)
+        if self.useRecords:
+            self.library.add("work")
+            self.library["work"].libPkg.add(self.pkg.name)
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
@@ -345,8 +349,10 @@ class RegisterBank(vhdl.BasicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-        self.entity.port.add("reg_i", "in", "reg_i_t")
-        self.entity.port.add("reg_o", "out", "reg_o_t")
+        if self.useRecords:
+            self.entity.port.add("reg_i", "in", "reg_i_t")
+            self.entity.port.add("reg_o", "out", "reg_o_t")
+
         # Architecture
         # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
@@ -409,7 +415,10 @@ class RegisterBank(vhdl.BasicVHDL):
             for bit in register:
                 try:
                     if register[bit].externalClear:
-                        self.pkg.rec["reg_i"].add("clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
+                        if self.useRecords:
+                            self.pkg.rec["reg_i"].add("clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
+                        else:
+                            self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
                 except:
                     pass
 
@@ -460,6 +469,7 @@ class RegisterBank(vhdl.BasicVHDL):
             register = self.reg[index]
             for bit in register:
                 if isinstance(register[bit], RegisterBit):
+                    clearname = register[bit].radix+"_clear_i"
                     defaultvalue = "'1'"
                     elsevalue = "'0'"
                     vectorRange = str(bit)
@@ -501,6 +511,13 @@ class RegisterBank(vhdl.BasicVHDL):
             self.generate_code = True
         return vhdl.BasicVHDL.code(self)
 
+        if self.useRecords:
+            hdl_code = self.pkg.code()
+            hdl_code = hdl_code + vhdl.basicVHDL.code(self)
+        else:
+            hdl_code = vhdl.basicVHDL.code(self)
+        return hdl_code
+
     def write_file(self):
         return vhdl.BasicVHDL.write_file(self)
 
@@ -523,7 +540,7 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank", "rtl", 32, 8)
+    myregbank = RegisterBank("myregbank", "rtl", 32, 8, False)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
@@ -565,8 +582,6 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("rAwB", "SplitReadWrite", 0, 32)
 
-    myregbank.createRecordsFromRegisters()
-    print(myregbank.pkg.code())
     print(myregbank.code())
 
     myregbank.write_file()
