@@ -45,13 +45,13 @@ def VHDLenum(list):
             hdl_code = hdl_code + list[j].code()
     return hdl_code
 
-def DictCode(DictInput):
+def dictCode(DictInput):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + DictInput[j].code()
     return hdl_code
 
-class PackageObj:
+class packageObj:
     def __init__(self, name, *args):
         self.source = "File Location Unknown."
         self.name = name
@@ -60,16 +60,16 @@ class PackageObj:
         else:
             self.operator = "all"
 
-class PackageList(dict):
+class packageList(dict):
     def add(self, name, *args):
-        self[name] = PackageObj(name)
+        self[name] = packageObj(name)
         if args:
             self[name].operator = arg[0]
 
 class libraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.package = PackageList()
+        self.package = packageList()
     def code(self):
         hdl_code = ""
         hdl_code = hdl_code + indent(0) + ("library %s;\r\n" % self.name)
@@ -81,9 +81,9 @@ class libraryList(dict):
     def add(self, name):
         self[name] = libraryObj(name)
     def code(self):
-        return DictCode(self) + "\r\n"
+        return dictCode(self) + "\r\n"
 
-class GenericObj:
+class genericObj:
     def __init__(self, name, type, init_value):
         self.name = name
         self.init_value = init_value
@@ -92,7 +92,7 @@ class GenericObj:
         hdl_code = indent(2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
         return hdl_code
 
-class PortObj:
+class portObj:
     def __init__(self, name, direction, type):
         self.name = name
         self.direction = direction
@@ -101,15 +101,15 @@ class PortObj:
         hdl_code = indent(2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
         return hdl_code
 
-class GenericList(dict):
+class genericList(dict):
     def add(self, name, type, init):
-        self[name] = GenericObj(name,type,init)
+        self[name] = genericObj(name,type,init)
     def code(self):
         return VHDLenum(self)
 
-class PortList(dict):
+class portList(dict):
     def add(self, name, direction, type):
-        self[name] = PortObj(name, direction, type)
+        self[name] = portObj(name, direction, type)
     def code(self):
         return VHDLenum(self)
 
@@ -135,7 +135,7 @@ class signalObj:
         else:
             return indent(1) + ("signal %s : %s;\r\n" % (self.name, self.type))
 
-class VariableObj:
+class variableObj:
     def __init__(self, name, type, *args):
         self.name = name
         self.type = type
@@ -153,19 +153,19 @@ class constantList(dict):
     def add(self,name,type,init):
         self[name] = constantObj(name,type,init)
     def code(self):
-        return DictCode(self)
+        return dictCode(self)
 
 class signalList(dict):
     def add(self,name,type,*args):
         self[name] = signalObj(name,type,*args)
     def code(self):
-        return DictCode(self)
+        return dictCode(self)
 
-class VariableList(dict):
+class variableList(dict):
     def add(self,name,type,*args):
-        self[name] = VariableObj(name,type,*args)
+        self[name] = variableObj(name,type,*args)
     def code(self):
-        return DictCode(self)
+        return dictCode(self)
 
 class genericCodeBlock:
     def __init__(self, indent):
@@ -182,8 +182,8 @@ class genericCodeBlock:
 class componentObj:
     def __init__(self, name):
         self.name    = name
-        self.generic = GenericList()
-        self.port    = PortList()
+        self.generic = genericList()
+        self.port    = portList()
         self.filename = ""
     def code(self):
         hdl_code = indent(0) + ("component %s is\r\n" % self.name)
@@ -216,7 +216,7 @@ class componentList(dict):
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
 
-class InstanceObj:
+class instanceObj:
     def __init__(self, name, value):
         self.name = name
         self.value = ""
@@ -224,9 +224,9 @@ class InstanceObj:
         hdl_code = indent(2) + ("%s => %s,\r\n" % (self.name, self.value))
         return hdl_code
 
-class InstanceObjList(dict):
+class instanceObjList(dict):
     def add(self, name, type, value):
-        self[name] = InstanceObj(name,value)
+        self[name] = instanceObj(name,value)
     def code(self):
         return VHDLenum(self)
 
@@ -234,8 +234,8 @@ class componentInstanceObj:
     def __init__(self, instance_name, component_name):
         self.instance_name  = instance_name
         self.component_name = component_name
-        self.generic = InstanceObjList()
-        self.port    = InstanceObjList()
+        self.generic = instanceObjList()
+        self.port    = instanceObjList()
         self.filename = ""
     def code(self):
         hdl_code = indent(0) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
@@ -259,11 +259,11 @@ class componentInstanceList(dict):
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
 
-class Entity:
+class entityObj:
     def __init__(self, name):
         self.name = name
-        self.generic = GenericList()
-        self.port = PortList()
+        self.generic = genericList()
+        self.port = portList()
 
     def code(self):
         hdl_code = indent(0) + ("entity %s is\r\n" % self.name)
@@ -287,7 +287,7 @@ class Entity:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-class architecture:
+class architectureObj:
     def __init__(self, name, entity_name):
         self.name = name
         self.entityName = entity_name
@@ -343,8 +343,8 @@ class architecture:
 class basicVHDL:
     def __init__(self, entity_name, architecture_name):
         self.library      = libraryList()
-        self.entity       = Entity(entity_name)
-        self.architecture = architecture(architecture_name, entity_name)
+        self.entity       = entityObj(entity_name)
+        self.architecture = architectureObj(architecture_name, entity_name)
 
     def instance(self, instance_name, generic_list, port_list):
         self.tmpinst = componentInstanceObj()
