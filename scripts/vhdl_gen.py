@@ -246,8 +246,57 @@ class GenericCodeBlock:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
         return hdl_code
 
-# ------------------- Component -----------------------
+class functionObj:
+    def __init__(self, name):
+        self.name = name
+        # todo: generic types here.
+        self.generic = genericList()
+        # function parameters in VHDL follow the same fashion as
+        # generics on a portmap. name : type := init value;
+        self.parameter = genericList()
+        self.variable = variableList()
+        self.functionBody = genericCodeBlock(1)
+        self.returnType = "return_type_here"
+        self.genericInstance = instanceObjList()
 
+    def new(self, newName):
+        hdl_code = "function %s is new %s\r\n" % (newName, self.name)
+        hdl_code = hdl_code + indent(1)+"generic (\r\n"
+        # todo: generic types here.
+        if not self.genericInstance:
+            for item in genericList:
+                self.genericInstance.add(item,"<new value>")
+        hdl_code = hdl_code + self.genericInstance.code()
+        hdl_code = hdl_code + indent(1)+");\r\n"
+
+    def declaration(self):
+        hdl_code = self._code()
+        hdl_code = hdl_code + indent(0) + ("return %s;\r\n" % self.returnType)
+        return hdl_code
+
+    def _code(self):
+        hdl_code = indent(0) + ("function %s" % self.name)
+        if (self.generic):
+            hdl_code = hdl_code + ("\r\n")
+            hdl_code = hdl_code + indent(1) + ("generic (\r\n")
+            # todo: generic types here.
+            hdl_code = hdl_code + self.generic.code()
+            hdl_code = hdl_code + indent(1) + (")\r\n")
+            hdl_code = hdl_code + indent(1) + ("parameter")
+        if (self.parameter):
+            hdl_code = hdl_code + indent(1) + (" (\r\n")
+            hdl_code = hdl_code + self.parameter.code()
+            hdl_code = hdl_code + indent(1) + (")\r\n")
+        return hdl_code
+
+    def code(self):
+        hdl_code = self._code()
+        hdl_code = hdl_code + indent(0) + ("return %s is\r\n")
+        hdl_code = hdl_code + self.variable.code()
+        hdl_code = hdl_code + indent(0) + ("begin\r\n")
+        hdl_code = hdl_code + self.functionBody.code()
+        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
+        return hdl_code
 
 class componentObj:
     def __init__(self, name):

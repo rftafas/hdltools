@@ -50,7 +50,7 @@ class PackageDeclarationObj:
         #hdl_code = hdl_code + self.procedures.declaration()
         hdl_code = hdl_code + self.component.code()
         hdl_code = hdl_code + self.declarationFooter.code()
-        hdl_code = hdl_code + vhdl.indent(0) + ("end package %s;\r\n" % self.name)
+        hdl_code = hdl_code + vhdl.indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
