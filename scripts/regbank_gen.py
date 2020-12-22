@@ -259,9 +259,9 @@ class RegisterBit:
             print("Register Type not known. Using ReadOnly")
             print(RegisterTypeSet)
         self.externalClear = False
-        self.direction = getDirection(type)
+        self.direction = GetDirection(type)
         self.vhdlType = "std_logic"
-        self.name = name+getSuffix(self.direction)
+        self.name = name+GetSuffix(self.direction)
         self.radix = name
         self.size = 1
 
@@ -540,7 +540,7 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank", "rtl", 32, 8, False)
+    myregbank = RegisterBank("myregbank", "rtl", 32, 8)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
