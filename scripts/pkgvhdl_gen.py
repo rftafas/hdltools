@@ -20,26 +20,26 @@ import math
 class packageDeclarationObj:
     def __init__(self, name):
         self.name = name
-        self.generic = genericList()
-        self.constant = constantList()
-        self.component = componentList()
-        self.signal = signalList()
+        self.generic = vhdl.genericList()
+        self.constant = vhdl.constantList()
+        self.component = vhdl.componentList()
+        self.signal = vhdl.signalList()
         self.functions = ""
         self.procedures = ""
-        self.customTypes = genericCodeBlock(1)
-        self.declarationHeader = genericCodeBlock(1)
-        self.declarationFooter = genericCodeBlock(1)
+        self.customTypes = vhdl.genericCodeBlock(1)
+        self.declarationHeader = vhdl.genericCodeBlock(1)
+        self.declarationFooter = vhdl.genericCodeBlock(1)
 
     def code(self):
-        hdl_code = indent(0) + ("entity %s is\r\n" % self.name)
+        hdl_code = vhdl.indent(0) + ("entity %s is\r\n" % self.name)
         if (self.generic):
-            hdl_code = hdl_code + indent(1) + ("generic (\r\n")
+            hdl_code = hdl_code + vhdl.indent(1) + ("generic (\r\n")
             hdl_code = hdl_code + self.generic.code()
-            hdl_code = hdl_code + indent(1) + (");\r\n")
+            hdl_code = hdl_code + vhdl.indent(1) + (");\r\n")
         else:
-            hdl_code = hdl_code + indent(1) + ("--generic (\r\n")
-            hdl_code = hdl_code + indent(2) + ("--generic_declaration_tag\r\n")
-            hdl_code = hdl_code + indent(1) + ("--);\r\n")
+            hdl_code = hdl_code + vhdl.indent(1) + ("--generic (\r\n")
+            hdl_code = hdl_code + vhdl.indent(2) + ("--generic_declaration_tag\r\n")
+            hdl_code = hdl_code + vhdl.indent(1) + ("--);\r\n")
 
         hdl_code = hdl_code + self.declarationHeader.code()
         hdl_code = hdl_code + self.constant.code()
@@ -49,7 +49,7 @@ class packageDeclarationObj:
         #hdl_code = hdl_code + self.procedures.declaration()
         hdl_code = hdl_code + self.component.code()
         hdl_code = hdl_code + self.declarationFooter.code()
-        hdl_code = hdl_code + indent(0) + ("end package %s;\r\n" % self.name)
+        hdl_code = hdl_code + vhdl.indent(0) + ("end package %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
@@ -58,12 +58,12 @@ class packageBodyObj:
         self.name = name
         self.functions = ""
         self.procedures = ""
-        self.bodyCodeHeader = genericCodeBlock(1)
-        self.bodyCodeFooter = genericCodeBlock(1)
+        self.bodyCodeHeader = vhdl.genericCodeBlock(1)
+        self.bodyCodeFooter = vhdl.genericCodeBlock(1)
 
     def code(self):
         hdl_code = ""
-        hdl_code = indent(0) + ("package body of %s is\r\n" % self.name)
+        hdl_code = vhdl.indent(0) + ("package body of %s is\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeHeader.code()
@@ -77,13 +77,13 @@ class packageBodyObj:
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(0) + ("end package body;\r\n")
+        hdl_code = hdl_code + vhdl.indent(0) + ("end package body;\r\n")
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 class pkgVHDL:
     def __init__(self, name):
-        self.library = libraryList()
+        self.library = vhdl.libraryList()
         self.packageDeclaration = packageDeclarationObj(name)
         self.packageBody = packageBodyObj(name)
 
