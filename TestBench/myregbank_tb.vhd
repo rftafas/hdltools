@@ -34,10 +34,10 @@ end;
 architecture bench of myregbank_tb is
 
   -- Generics
-  constant C_S_AXI_ADDR_WIDTH : integer := 0;
-  constant C_S_AXI_DATA_WIDTH : integer := 0;
-  -- clock period
-  constant axi_aclk_period_c  : time    := 5 ns;
+  constant C_S_AXI_ADDR_WIDTH : integer := 3;
+  constant C_S_AXI_DATA_WIDTH : integer := 32;
+                                        -- clock period
+  constant axi_aclk_period_c  : time    := 10 ns;
   -- axi lite BFM config
   constant C_AXILITE_BFM_CONFIG : t_axilite_bfm_config := (
     max_wait_cycles            => 10,
@@ -92,7 +92,7 @@ begin
     port map (
       S_AXI_ACLK    => S_AXI_ACLK,
       S_AXI_ARESETN => S_AXI_ARESETN,
-      S_AXI_AWADDR  => axilite_if.write_address_channel.awaddr,
+      S_AXI_AWADDR  => axilite_if.write_address_channel.awaddr(C_S_AXI_ADDR_WIDTH-1 downto 0),
       S_AXI_AWPROT  => axilite_if.write_address_channel.awprot,
       S_AXI_AWVALID => axilite_if.write_address_channel.awvalid,
       S_AXI_AWREADY => axilite_if.write_address_channel.awready,
@@ -103,7 +103,7 @@ begin
       S_AXI_BRESP   => axilite_if.write_response_channel.bresp,
       S_AXI_BVALID  => axilite_if.write_response_channel.bvalid,
       S_AXI_BREADY  => axilite_if.write_response_channel.bready,
-      S_AXI_ARADDR  => axilite_if.read_address_channel.araddr,
+      S_AXI_ARADDR  => axilite_if.read_address_channel.araddr(C_S_AXI_ADDR_WIDTH-1 downto 0),
       S_AXI_ARPROT  => axilite_if.read_address_channel.arprot,
       S_AXI_ARVALID => axilite_if.read_address_channel.arvalid,
       S_AXI_ARREADY => axilite_if.read_address_channel.arready,
@@ -156,22 +156,27 @@ begin
                     axilite_if);  -- Signal must be visible in local process scope
     end;
 
+    variable data_output : std_logic_vector(31 downto 0);
 
   begin
 
     test_runner_setup(runner, runner_cfg);
+    disable_log_msg(ID_POS_ACK);
 
     while test_suite loop
       if run("test_all_registers") then
         uvvm_util.methods_pkg.log("Starting Simulation to test auto-genered regbank.");
+
+        wait until s_axi_aresetn = '1';
+        wait for 5*axi_aclk_period_c;
 
         -- AXI bus reset.
         axilite_if <= init_axilite_if_signals(32, 32);
 
         wait for 5*axi_aclk_period_c;
 
-        axilite_write(0, x"FFFFFFFF", "First transaction write");
-        axilite_read(0, x"FFFFFFFF", "Second transaction read");
+        axilite_write(unsigned'(x"0000000C"), x"FFFFFFFF", "First transaction write");
+        axilite_read(unsigned'(x"0000000C"), data_output, "Second transaction read");
 
         wait for 100 ns;
         test_runner_cleanup(runner);
