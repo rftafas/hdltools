@@ -355,14 +355,15 @@ class Package:
     def code(self, indent_level=0):
         hdl_code = indent(0) + ("package %s is\r\n" % self.name)
         if (self.constant):
-            hdl_code = hdl_code + self.constant.code()
+            hdl_code = hdl_code + self.constant.code(1)
+            hdl_code = hdl_code + "\r\n"
         else:
             hdl_code = hdl_code + indent(1) + ("--constant (\r\n")
             hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
             hdl_code = hdl_code + indent(1) + ("--);\r\n")
         for i in self.rec:
             if (self.rec[i]):
-                hdl_code = hdl_code + self.rec[i].code(2)
+                hdl_code = hdl_code + self.rec[i].code(1)
 
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
