@@ -520,8 +520,17 @@ class RegisterBank(vhdl.basicVHDL):
 
     def createRecordsFromRegisters(self):
         for reg in self.reg:
+            # add constant with register offset
+            self.pkg.constant.add(self.reg[reg].name + "_offset_c", "unsigned(%d downto 0)"
+                                  % (self.datasize - 1), "to_unsigned(%d,%d)" % (reg, self.datasize))
             for bit in self.reg[reg]:
                 if self.reg[reg][bit] != ["empty"]:
+                    # add constant with bit offset and width
+                    self.pkg.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_offset_c", "natural",
+                                          "%d" % bit)
+                    self.pkg.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_width_c", "natural",
+                                          "%d" % self.reg[reg][bit].size)
+                    # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
                         self.pkg.rec["reg_i"].add(self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
                     elif self.reg[reg][bit].regType == "ReadWrite":

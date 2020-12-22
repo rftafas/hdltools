@@ -2,9 +2,40 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 package myregbank_pkg is
-  --constant (
-  --constant_declaration_tag
-  --);
+  constant Golden_offset_c                 : unsigned(31 downto 0) := to_unsigned(0, 32);
+  constant Golden_g1_i_offset_c            : natural               := 0;
+  constant Golden_g1_i_width_c             : natural               := 32;
+  constant ReadWrite1_offset_c             : unsigned(31 downto 0) := to_unsigned(1, 32);
+  constant ReadWrite1_rw1_o_offset_c       : natural               := 0;
+  constant ReadWrite1_rw1_o_width_c        : natural               := 32;
+  constant ReadWrite2_offset_c             : unsigned(31 downto 0) := to_unsigned(2, 32);
+  constant ReadWrite2_rw2_o_offset_c       : natural               := 0;
+  constant ReadWrite2_rw2_o_width_c        : natural               := 32;
+  constant WriteToClear_offset_c           : unsigned(31 downto 0) := to_unsigned(3, 32);
+  constant WriteToClear_w2c1_i_offset_c    : natural               := 0;
+  constant WriteToClear_w2c1_i_width_c     : natural               := 32;
+  constant SlicedReg_offset_c              : unsigned(31 downto 0) := to_unsigned(4, 32);
+  constant SlicedReg_pulse1_o_offset_c     : natural               := 0;
+  constant SlicedReg_pulse1_o_width_c      : natural               := 16;
+  constant SlicedReg_pulse2_o_offset_c     : natural               := 16;
+  constant SlicedReg_pulse2_o_width_c      : natural               := 16;
+  constant MixedRegister_offset_c          : unsigned(31 downto 0) := to_unsigned(5, 32);
+  constant MixedRegister_pulse1_o_offset_c : natural               := 0;
+  constant MixedRegister_pulse1_o_width_c  : natural               := 1;
+  constant MixedRegister_w2c1_i_offset_c   : natural               := 1;
+  constant MixedRegister_w2c1_i_width_c    : natural               := 1;
+  constant MixedRegister_ro1_i_offset_c    : natural               := 2;
+  constant MixedRegister_ro1_i_width_c     : natural               := 1;
+  constant MixedRegister_div1_i_offset_c   : natural               := 8;
+  constant MixedRegister_div1_i_width_c    : natural               := 8;
+  constant MixedRegister_div2_o_offset_c   : natural               := 16;
+  constant MixedRegister_div2_o_width_c    : natural               := 8;
+  constant MixedRegister_div3_i_offset_c   : natural               := 24;
+  constant MixedRegister_div3_i_width_c    : natural               := 8;
+  constant ReadAWriteB_offset_c            : unsigned(31 downto 0) := to_unsigned(6, 32);
+  constant ReadAWriteB_rAwB_i_offset_c     : natural               := 0;
+  constant ReadAWriteB_rAwB_i_width_c      : natural               := 32;
+
   type reg_i_t is record
     Golden_g1_i                  : std_logic_vector(31 downto 0);
     set_WriteToClear_w2c1_i      : std_logic_vector(31 downto 0);
