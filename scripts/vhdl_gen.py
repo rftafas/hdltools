@@ -1,6 +1,6 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
-# Modified by Tomas Perpetuo Correa
+# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
