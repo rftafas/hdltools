@@ -175,8 +175,10 @@ begin
 
         wait for 5*axi_aclk_period_c;
 
-        axilite_write(unsigned'(x"0000000C"), x"FFFFFFFF", "First transaction write");
-        axilite_read(unsigned'(x"0000000C"), data_output, "Second transaction read");
+        axilite_write(Golden_offset_c, x"FFFFFFFF", "First transaction write");
+        axilite_write(ReadWrite1_offset_c, x"FFFFFFFF", "First transaction write");
+        axilite_write(ReadWrite2_offset_c, x"FFFFFFFF", "First transaction write");
+        axilite_write(WriteToClear_offset_c, x"FFFFFFFF", "First transaction write");
 
         wait for 100 ns;
         test_runner_cleanup(runner);
