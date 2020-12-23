@@ -215,7 +215,7 @@ class RecordList(dict):
 
     def code(self, indent_level=0):
         hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
-        hdl_code = hdl_code + DictCode(self, indent_level)
+        hdl_code = hdl_code + dictCode(self, indent_level)
         hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
         hdl_code = hdl_code + "\r\n"
         return hdl_code

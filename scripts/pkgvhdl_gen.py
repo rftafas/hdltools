@@ -1,5 +1,6 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
+# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -32,26 +33,36 @@ class PackageDeclarationObj:
         self.declarationHeader = vhdl.GenericCodeBlock(1)
         self.declarationFooter = vhdl.GenericCodeBlock(1)
 
-    def code(self):
-        hdl_code = vhdl.indent(0) + ("entity %s is\r\n" % self.name)
-        if (self.generic):
-            hdl_code = hdl_code + vhdl.indent(1) + ("generic (\r\n")
-            hdl_code = hdl_code + self.generic.code()
-            hdl_code = hdl_code + vhdl.indent(1) + (");\r\n")
+    def code(self, indent_level=0):
+        hdl_code = vhdl.indent(indent_level) + ("package %s is\r\n" % self.name)
+        # Constants
+        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- constants  (\r\n")
+        if (self.constant):
+            hdl_code = hdl_code + self.constant.code(indent_level+1)
+            hdl_code = hdl_code + "\r\n"
         else:
-            hdl_code = hdl_code + vhdl.indent(1) + ("--generic (\r\n")
-            hdl_code = hdl_code + vhdl.indent(2) + ("--generic_declaration_tag\r\n")
-            hdl_code = hdl_code + vhdl.indent(1) + ("--);\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("--constant_declaration_tag\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
 
-        hdl_code = hdl_code + self.declarationHeader.code()
-        hdl_code = hdl_code + self.constant.code()
-        hdl_code = hdl_code + self.customTypes.code()
-        hdl_code = hdl_code + self.signal.code()
-        #hdl_code = hdl_code + self.functions.declaration()
-        #hdl_code = hdl_code + self.procedures.declaration()
-        hdl_code = hdl_code + self.component.code()
-        hdl_code = hdl_code + self.declarationFooter.code()
-        hdl_code = hdl_code + vhdl.indent(0) + ("end package %s;\r\n" % self.name)
+        # Records
+        for i in self.record:
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- records (\r\n")
+            if (self.record[i]):
+                hdl_code = hdl_code + self.record[i].code(indent_level+1)
+            else:
+                hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- records_declaration_tag\r\n")
+                hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+
+        # Record initialization constants
+        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- records initialization constants (\r\n")
+        for i in self.record:
+            if (self.record[i]):
+                hdl_code = hdl_code + self.record[i].code_init(indent_level+1)
+            else:
+                hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- records_init_declaration_tag\r\n")
+                hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+
+        hdl_code = hdl_code + vhdl.indent(indent_level) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
@@ -64,12 +75,12 @@ class PackageBodyObj:
         self.bodyCodeHeader = vhdl.GenericCodeBlock(1)
         self.bodyCodeFooter = vhdl.GenericCodeBlock(1)
 
-    def code(self):
+    def code(self, indent_level=0):
         hdl_code = ""
-        hdl_code = vhdl.indent(0) + ("package body of %s is\r\n" % self.name)
+        hdl_code = vhdl.indent(indent_level) + ("package body %s is\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeHeader.code()
+            hdl_code = hdl_code + self.bodyCodeHeader.code(indent_level)
             hdl_code = hdl_code + "\r\n"
         if (self.functions):
             #hdl_code = hdl_code + self.functions.code()
@@ -78,9 +89,9 @@ class PackageBodyObj:
             #hdl_code = hdl_code + self.procedures.code()
             hdl_code = hdl_code + "\r\n"
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeFooter.code()
+            hdl_code = hdl_code + self.bodyCodeFooter.code(indent_level)
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + vhdl.indent(0) + ("end package body;\r\n")
+        hdl_code = hdl_code + vhdl.indent(indent_level) + ("end package body;\r\n")
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
@@ -88,11 +99,11 @@ class PackageBodyObj:
 class PkgVHDL:
     def __init__(self, name):
         self.library = vhdl.LibraryList()
-        self.packageDeclaration = PackageDeclarationObj(name)
-        self.packageBody = PackageBodyObj(name)
+        self.declaration = PackageDeclarationObj(name)
+        self.body = PackageBodyObj(name)
 
     def addRecord(self, name):
-        self.packageDeclaration.record[name] = vhdl.RecordList(name)
+        self.declaration.record[name] = vhdl.RecordList(name)
 
     def write_file(self):
         hdl_code = self.code()
@@ -111,38 +122,8 @@ class PkgVHDL:
         return True
 
     def code(self):
-        # hdl_code = indent(0) + ("package %s is\r\n" % self.name)
-        # hdl_code = hdl_code + indent(1) + ("-- constants  (\r\n")
-        # if (self.constant):
-        #     hdl_code = hdl_code + self.constant.code(1)
-        #     hdl_code = hdl_code + "\r\n"
-        # else:
-        #     hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
-        #     hdl_code = hdl_code + indent(1) + ("--);\r\n")
-        #
-        # for i in self.rec:
-        #     hdl_code = hdl_code + indent(1) + ("-- records (\r\n")
-        #     if (self.rec[i]):
-        #         hdl_code = hdl_code + self.rec[i].code(1)
-        #     else:
-        #         hdl_code = hdl_code + indent(2) + ("-- records_declaration_tag\r\n")
-        #         hdl_code = hdl_code + indent(1) + ("--);\r\n")
-        #
-        # hdl_code = hdl_code + indent(1) + ("-- records initialization constants (\r\n")
-        # for i in self.rec:
-        #     if (self.rec[i]):
-        #         hdl_code = hdl_code + self.rec[i].code_init(1)
-        #     else:
-        #         hdl_code = hdl_code + indent(2) + ("-- records_init_declaration_tag\r\n")
-        #         hdl_code = hdl_code + indent(1) + ("--);\r\n")
-        #
-        # hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
-        # hdl_code = hdl_code + "\r\n"
-        # return hdl_code
-        #
-        # return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
         hdl_code = ""
         hdl_code = hdl_code + self.library.code()
-        hdl_code = hdl_code + self.packageDeclaration.code()
-        hdl_code = hdl_code + self.packageBody.code()
+        hdl_code = hdl_code + self.declaration.code()
+        hdl_code = hdl_code + self.body.code()
         return hdl_code
