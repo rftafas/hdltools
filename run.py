@@ -40,6 +40,7 @@ ui.add_external_library("expert", expert_root)
 
 # Add module sources.
 ssvectors_src_lib = ui.add_library("src_lib")
+ssvectors_src_lib.add_source_files("TestBench/myregbank_pkg.vhd")
 ssvectors_src_lib.add_source_files("TestBench/myregbank.vhd")
 
 # Add tb sources.
