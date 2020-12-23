@@ -17,7 +17,8 @@ import os
 import vhdl_gen as vhdl
 import math
 
-class packageDeclarationObj:
+
+class PackageDeclarationObj:
     def __init__(self, name):
         self.name = name
         self.generic = vhdl.genericList()
@@ -53,7 +54,8 @@ class packageDeclarationObj:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-class packageBodyObj:
+
+class PackageBodyObj:
     def __init__(self, name):
         self.name = name
         self.functions = ""
@@ -81,11 +83,12 @@ class packageBodyObj:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-class pkgVHDL:
+
+class PkgVHDL:
     def __init__(self, name):
         self.library = vhdl.libraryList()
-        self.packageDeclaration = packageDeclarationObj(name)
-        self.packageBody = packageBodyObj(name)
+        self.packageDeclaration = PackageDeclarationObj(name)
+        self.packageBody = PackageBodyObj(name)
 
     def write_file(self):
         hdl_code = self.code()
@@ -94,14 +97,14 @@ class pkgVHDL:
             os.makedirs("output")
 
         output_file_name = "output/"+self.entity.name+".vhd"
-        #to do: check if file exists. If so, emit a warning and
-        #check if must clear it.
-        output_file = open(output_file_name,"w+")
+        # to do: check if file exists. If so, emit a warning and
+        # check if must clear it.
+        output_file = open(output_file_name, "w+")
         for line in hdl_code:
             output_file.write(line)
 
         output_file.close()
-        return True;
+        return True
 
     def code(self):
         hdl_code = ""
