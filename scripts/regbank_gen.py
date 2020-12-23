@@ -558,20 +558,14 @@ class RegisterBank(vhdl.basicVHDL):
             self.RegisterClearConnection()
             self.generate_code = True
 
-        if self.useRecords:
-            hdl_code = self.pkg.code()
-            hdl_code = hdl_code + vhdl.basicVHDL.code(self)
-        else:
-            hdl_code = vhdl.basicVHDL.code(self)
+        hdl_code = vhdl.basicVHDL.code(self)
         return hdl_code
 
     def write_file(self):
-        hdl_code = self.library["IEEE"].code()
-        hdl_code = hdl_code + self.code()
-
         if (not os.path.exists("output")):
             os.makedirs("output")
 
+        hdl_code = self.code()
         output_file_name = "output/"+self.entity.name+".vhd"
         # to do: check if file exists. If so, emit a warning and
         # check if must clear it.
@@ -580,6 +574,17 @@ class RegisterBank(vhdl.basicVHDL):
             output_file.write(line)
 
         output_file.close()
+
+        if self.useRecords:
+            hdl_code = self.library["IEEE"].code()
+            hdl_code = hdl_code + self.pkg.code()
+
+            output_file_name = "output/"+self.entity.name+"_pkg.vhd"
+            output_file = open(output_file_name, "w+")
+            for line in hdl_code:
+                output_file.write(line)
+
+            output_file.close()
         return True
 
 
