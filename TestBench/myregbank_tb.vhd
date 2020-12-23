@@ -182,16 +182,16 @@ begin
           uvvm_util.methods_pkg.log("Test case number: " & to_string(test_case));
           case test_case is
             when 1 =>
-              data_before_write := reg_i.Golden_g1_i;
-              axilite_write(Golden_offset_c, random(C_S_AXI_DATA_WIDTH), "Write to read only register");
+              data_before_write := reg_i.golden_golden_i;
+              axilite_write(golden_offset_c, random(C_S_AXI_DATA_WIDTH), "Write to read only register");
               wait_num_rising_edge(S_AXI_ACLK, 1);
-              axilite_read(Golden_offset_c, data_output, "Reading");
-            -- axilite_check(Golden_offset_c, data_before_write, "Check no change");
+              axilite_read(golden_offset_c, data_output, "Reading");
+            -- axilite_check(golden_offset_c, data_before_write, "Check no change");
             when 2 =>
-              reg_i.Golden_g1_i <= random(reg_i.Golden_g1_i'length);
+              reg_i.golden_golden_i <= random(reg_i.golden_golden_i'length);
               wait_num_rising_edge(S_AXI_ACLK, 1);
-              axilite_read(Golden_offset_c, data_output, "Reading");
-            -- axilite_check(Golden_offset_c, reg_i.Golden_g1_i, "Check no change");
+              axilite_read(golden_offset_c, data_output, "Reading");
+            -- axilite_check(golden_offset_c, reg_i.golden_golden_i, "Check no change");
             when others =>
           end case;
           wait for random(1 ns, 500 ns);
