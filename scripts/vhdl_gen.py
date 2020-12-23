@@ -66,9 +66,9 @@ class PackageObj:
             self.operator = "all"
 
 
-class LibraryPackageList(dict):
+class PackageList(dict):
     def add(self, name, *args):
-        self[name] = LibraryPackageObj(name)
+        self[name] = PackageObj(name)
         if args:
             self[name].operator = args[0]
 
@@ -76,7 +76,7 @@ class LibraryPackageList(dict):
 class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.package = LibraryPackageList()
+        self.package = PackageList()
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -509,7 +509,7 @@ class InstanceObjList(dict):
     def add(self, name, type, value):
         self[name] = InstanceObj(name, value)
 
-    def code(self):
+    def code(self, indent_level=0):
         return VHDLenum(self)
 
 
