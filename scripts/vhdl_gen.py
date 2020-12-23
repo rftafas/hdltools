@@ -118,19 +118,24 @@ class GenericList(dict):
 
 # ------------------- Port -----------------------
 class PortObj:
-    def __init__(self, name, direction, type):
+    def __init__(self, name, direction, type, init):
         self.name = name
         self.direction = direction
         self.type = type
+        self.init = init
 
     def code(self, indent_level=0):
-        hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
+        if self.init is None:
+            hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
+        else:
+            hdl_code = indent(indent_level + 2) + ("%s : %s %s := %s;\r\n" %
+                                                   (self.name, self.direction, self.type, self.init))
         return hdl_code
 
 
 class PortList(dict):
-    def add(self, name, direction, type):
-        self[name] = PortObj(name, direction, type)
+    def add(self, name, direction, type, init=None):
+        self[name] = PortObj(name, direction, type, init)
 
     def code(self, indent_level=0):
         return VHDLenum(self)
@@ -183,12 +188,22 @@ class SignalList(dict):
 
 
 class RecordObj:
-    def __init__(self, name, type):
+    def __init__(self, name, type, init=None):
         self.name = name
         self.type = type
+        if init is None:
+            if self.type == "std_logic":
+                self.init = "'0'"
+            else:
+                self.init = "(others => '0')"
+        else:
+            self.init = init
 
     def code(self, indent_level=0):
         return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
+
+    def code_init(self, indent_level=0):
+        return indent(indent_level + 1) + ("%s => %s,\r\n" % (self.name, self.init))
 
 
 class RecordList(dict):
@@ -202,6 +217,19 @@ class RecordList(dict):
         hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
         hdl_code = hdl_code + DictCode(self, indent_level)
         hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+    def code_init(self, indent_level=0):
+        hdl_code = indent(indent_level) + ("constant %s : %s := ( \r\n" % (self.name + "_init_c", self.name + "_t"))
+        i = 0
+        for j in self:
+            i = i + 1
+            if (i == len(self)):
+                hdl_code = hdl_code + indent(indent_level) + self[j].code_init().replace(",", "")
+            else:
+                hdl_code = hdl_code + indent(indent_level) + self[j].code_init()
+        hdl_code = hdl_code + indent(indent_level) + (");\r\n")
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
@@ -354,16 +382,29 @@ class Package:
 
     def code(self, indent_level=0):
         hdl_code = indent(0) + ("package %s is\r\n" % self.name)
+        hdl_code = hdl_code + indent(1) + ("-- constants  (\r\n")
         if (self.constant):
             hdl_code = hdl_code + self.constant.code(1)
             hdl_code = hdl_code + "\r\n"
         else:
-            hdl_code = hdl_code + indent(1) + ("--constant (\r\n")
             hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
             hdl_code = hdl_code + indent(1) + ("--);\r\n")
+
         for i in self.rec:
+            hdl_code = hdl_code + indent(1) + ("-- records (\r\n")
             if (self.rec[i]):
                 hdl_code = hdl_code + self.rec[i].code(1)
+            else:
+                hdl_code = hdl_code + indent(2) + ("-- records_declaration_tag\r\n")
+                hdl_code = hdl_code + indent(1) + ("--);\r\n")
+
+        hdl_code = hdl_code + indent(1) + ("-- records initialization constants (\r\n")
+        for i in self.rec:
+            if (self.rec[i]):
+                hdl_code = hdl_code + self.rec[i].code_init(1)
+            else:
+                hdl_code = hdl_code + indent(2) + ("-- records_init_declaration_tag\r\n")
+                hdl_code = hdl_code + indent(1) + ("--);\r\n")
 
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"

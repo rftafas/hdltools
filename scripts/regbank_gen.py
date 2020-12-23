@@ -351,7 +351,7 @@ class RegisterBank(vhdl.basicVHDL):
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
         if self.useRecords:
             self.entity.port.add("reg_i", "in", "reg_i_t")
-            self.entity.port.add("reg_o", "out", "reg_o_t")
+            self.entity.port.add("reg_o", "out", "reg_o_t", "reg_o_init_c")
 
         # Architecture
         # Constant
