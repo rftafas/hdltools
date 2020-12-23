@@ -53,4 +53,4 @@ Note: the read, write are always from the point of view of the AXI master.
 
 ## Generating the VHDL file
 
-To auto-generate the .vhd file, the user must call the routine RegisterBank.write_file(). The created file will be saved in the *output* folder.
+To auto-generate the .vhd file, the user must call the routine RegisterBank.write_file(). The created fiel with be saved in the *output* folder.
