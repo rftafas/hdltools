@@ -246,6 +246,9 @@ class GenericCodeBlock:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
         return hdl_code
 
+# ------------------- Component -----------------------
+
+
 class functionObj:
     def __init__(self, name):
         self.name = name
