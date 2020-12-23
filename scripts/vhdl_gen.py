@@ -49,7 +49,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def DictCode(DictInput, indent_level=0):
+def dictCode(DictInput, indent_level=0):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -84,7 +84,7 @@ class LibraryObj:
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
         for j in self.libPkg:
-            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.libPkg[j].operator))
+            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
         return hdl_code
 
 
@@ -93,7 +93,7 @@ class LibraryList(dict):
         self[name] = LibraryObj(name)
 
     def code(self, indent_level=0):
-        return DictCode(self) + "\r\n"
+        return dictCode(self) + "\r\n"
 
 
 # ------------------- Generic -----------------------
@@ -157,7 +157,7 @@ class ConstantList(dict):
         self[name] = ConstantObj(name, type, init)
 
     def code(self, indent_level=0):
-        return DictCode(self)
+        return dictCode(self)
 
 
 # ------------------- Signals -----------------------
@@ -182,7 +182,7 @@ class SignalList(dict):
         self[name] = SignalObj(name, type, *args)
 
     def code(self, indent_level=0):
-        return DictCode(self)
+        return dictCode(self)
 
 # ------------------- Records -----------------------
 
@@ -255,9 +255,10 @@ class VariableObj:
 class VariableList(dict):
     def add(self, name, type, *args):
         self[name] = VariableObj(name, type, *args)
+    def code(self, indent_level=0):
 
     def code(self, indent_level=0):
-        return DictCode(self)
+        return dictCode(self)
 
 
 class GenericCodeBlock:
@@ -415,6 +416,9 @@ class Package:
 
 # ------------------- Entity -----------------------
 
+# ------------------- Entity -----------------------
+
+
 class Entity:
     def __init__(self, name):
         self.name = name
@@ -500,7 +504,7 @@ class Architecture:
         return hdl_code
 
 
-class basicVHDL:
+class BasicVHDL:
     def __init__(self, entity_name, architecture_name):
         self.library = LibraryList()
         self.entity = Entity(entity_name)
