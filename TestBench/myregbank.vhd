@@ -2,6 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 package myregbank_pkg is
+  -- constants  (
   constant Golden_offset_c                 : unsigned(31 downto 0) := to_unsigned(0, 32);
   constant Golden_g1_i_offset_c            : natural               := 0;
   constant Golden_g1_i_width_c             : natural               := 32;
@@ -36,6 +37,7 @@ package myregbank_pkg is
   constant ReadAWriteB_rAwB_i_offset_c     : natural               := 0;
   constant ReadAWriteB_rAwB_i_width_c      : natural               := 32;
 
+  -- records (
   type reg_i_t is record
     Golden_g1_i                  : std_logic_vector(31 downto 0);
     set_WriteToClear_w2c1_i      : std_logic_vector(31 downto 0);
@@ -49,6 +51,7 @@ package myregbank_pkg is
     clear_MixedRegister_ro1_i    : std_logic;
   end record reg_i_t;
 
+  -- records (
   type reg_o_t is record
     ReadWrite1_rw1_o       : std_logic_vector(31 downto 0);
     ReadWrite2_rw2_o       : std_logic_vector(31 downto 0);
@@ -58,6 +61,30 @@ package myregbank_pkg is
     MixedRegister_div2_o   : std_logic_vector(7 downto 0);
     ReadAWriteB_rAwB_o     : std_logic_vector(31 downto 0);
   end record reg_o_t;
+
+  -- records initialization constants (
+  constant reg_i_init_c : reg_i_t := (
+    Golden_g1_i                  => (others => '0'),
+    set_WriteToClear_w2c1_i      => (others => '0'),
+    set_MixedRegister_w2c1_i     => '0',
+    clear_MixedRegister_w2c1_i   => '0',
+    MixedRegister_ro1_i          => '0',
+    set_MixedRegister_div1_i     => (others => '0'),
+    MixedRegister_div3_i         => (others => '0'),
+    ReadAWriteB_rAwB_i           => (others => '0'),
+    clear_MixedRegister_pulse1_i => '0',
+    clear_MixedRegister_ro1_i    => '0'
+    );
+
+  constant reg_o_init_c : reg_o_t := (
+    ReadWrite1_rw1_o       => (others => '0'),
+    ReadWrite2_rw2_o       => (others => '0'),
+    SlicedReg_pulse1_o     => (others => '0'),
+    SlicedReg_pulse2_o     => (others => '0'),
+    MixedRegister_pulse1_o => '0',
+    MixedRegister_div2_o   => (others => '0'),
+    ReadAWriteB_rAwB_o     => (others => '0')
+    );
 
 end myregbank_pkg;
 
@@ -97,7 +124,7 @@ entity myregbank is
     S_AXI_RVALID  : out std_logic;
     S_AXI_RREADY  : in  std_logic;
     reg_i         : in  reg_i_t;
-    reg_o         : out reg_o_t
+    reg_o         : out reg_o_t := reg_o_init_c
     );
 end myregbank;
 
@@ -381,4 +408,3 @@ begin
 
 
 end rtl;
-
