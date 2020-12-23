@@ -1,3 +1,6 @@
 scripts/output
 scripts/__pycache__
 /vunit_out/
+/_Alert.txt
+/_Log.txt
+/out.xml
