@@ -259,9 +259,9 @@ class RegisterBit:
             print("Register Type not known. Using ReadOnly")
             print(RegisterTypeSet)
         self.externalClear = False
-        self.direction = GetDirection(type)
+        self.direction = getDirection(type)
         self.vhdlType = "std_logic"
-        self.name = name+GetSuffix(self.direction)
+        self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
 
@@ -307,23 +307,14 @@ class RegisterBank(vhdl.BasicVHDL):
         self.generate_code = False
         self.reg = RegisterList()
         self.datasize = datasize
-        self.addrsize = math.ceil(math.log(registerNumber, 2))
-
-        self.useRecords = useRecords
-        if self.useRecords:
-            self.pkg = vhdl.Package(entity_name + "_pkg")
-            self.pkg.addRecord("reg_i")
-            self.pkg.addRecord("reg_o")
+        self.addrsize = math.ceil(math.log(RegisterNumber, 2))
 
         # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].libPkg.add("std_logic_1164")
         self.library["IEEE"].libPkg.add("numeric_std")
         self.library.add("expert")
-        self.library["expert"].libPkg.add("std_logic_expert")
-        if self.useRecords:
-            self.library.add("work")
-            self.library["work"].libPkg.add(self.pkg.name)
+        self.library["expert"].package.add("std_logic_expert")
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
@@ -525,31 +516,6 @@ class RegisterBank(vhdl.BasicVHDL):
 
     def write_file(self):
         return vhdl.BasicVHDL.write_file(self)
-
-        if (not os.path.exists("output")):
-            os.makedirs("output")
-
-        hdl_code = self.code()
-        output_file_name = "output/"+self.entity.name+".vhd"
-        # to do: check if file exists. If so, emit a warning and
-        # check if must clear it.
-        output_file = open(output_file_name, "w+")
-        for line in hdl_code:
-            output_file.write(line)
-
-        output_file.close()
-
-        if self.useRecords:
-            hdl_code = self.library["IEEE"].code()
-            hdl_code = hdl_code + self.pkg.code()
-
-            output_file_name = "output/"+self.entity.name+"_pkg.vhd"
-            output_file = open(output_file_name, "w+")
-            for line in hdl_code:
-                output_file.write(line)
-
-            output_file.close()
-        return True
 
 
 if __name__ == '__main__':
