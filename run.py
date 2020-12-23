@@ -12,15 +12,15 @@ from vunit import VUnit, VUnitCLI
 # VUnit instance.
 ui = VUnit.from_argv()
 
-# Xilinx Vivado libraries.
-xilinx_libraries_path = "C:/users/tomaspcorrea/AppData/Local/ghdl/lib/xilinx-vivado"
-unisim_path = join(xilinx_libraries_path, "unisim", "v08")
-unifast_path = join(xilinx_libraries_path, "unifast", "v08")
-unimacro_path = join(xilinx_libraries_path, "unimacro", "v08")
-secureip_path = join(xilinx_libraries_path, "secureip", "v08")
-ui.add_external_library("unisim", unisim_path)
-ui.add_external_library("unimacro", unimacro_path)
-ui.add_external_library("secureip", secureip_path)
+# # Xilinx Vivado libraries.
+# xilinx_libraries_path = "C:/users/tomaspcorrea/AppData/Local/ghdl/lib/xilinx-vivado"
+# unisim_path = join(xilinx_libraries_path, "unisim", "v08")
+# unifast_path = join(xilinx_libraries_path, "unifast", "v08")
+# unimacro_path = join(xilinx_libraries_path, "unimacro", "v08")
+# secureip_path = join(xilinx_libraries_path, "secureip", "v08")
+# ui.add_external_library("unisim", unisim_path)
+# ui.add_external_library("unimacro", unimacro_path)
+# ui.add_external_library("secureip", secureip_path)
 
 # UVVM libraries path.
 uvvm_util_root = "C:/users/tomaspcorrea/AppData/Local/ghdl/lib/uvvm/uvvm_util/v08"
