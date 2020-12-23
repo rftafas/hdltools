@@ -290,31 +290,6 @@ begin
 
   --architecture_body_tag.
 
-  --Register Connection
-  regread_s(0)(31 downto 0)              <= reg_i.Golden_g1_i(31 downto 0);
-  reg_o.ReadWrite1_rw1_o(31 downto 0)    <= regwrite_s(1)(31 downto 0);
-  regread_s(1)(31 downto 0)              <= regwrite_s(1)(31 downto 0);
-  reg_o.ReadWrite2_rw2_o(31 downto 0)    <= regwrite_s(2)(31 downto 0);
-  regread_s(2)(31 downto 0)              <= regwrite_s(2)(31 downto 0);
-  reg_o.SlicedReg_pulse1_o(15 downto 0)  <= regwrite_s(4)(15 downto 0);
-  reg_o.SlicedReg_pulse2_o(15 downto 0)  <= regwrite_s(4)(31 downto 16);
-  reg_o.MixedRegister_pulse1_o           <= regwrite_s(5)(0);
-  regread_s(5)(2)                        <= reg_i.MixedRegister_ro1_i;
-  reg_o.MixedRegister_div2_o(7 downto 0) <= regwrite_s(5)(23 downto 16);
-  regread_s(5)(23 downto 16)             <= regwrite_s(5)(23 downto 16);
-  regread_s(5)(31 downto 24)             <= reg_i.MixedRegister_div3_i(7 downto 0);
-  reg_o.ReadAWriteB_rAwB_o               <= regwrite_s(6)(31 downto 0);
-  regread_s(6)(31 downto 0)              <= reg_i.ReadAWriteB_rAwB_i;
-
-  --Set Connection for Write to Clear
-  regset_s(3)(31 downto 0) <= reg_i.set_WriteToClear_w2c1_i(31 downto 0);
-  regset_s(5)(1)           <= reg_i.set_MixedRegister_w2c1_i;
-  regset_s(5)(15 downto 8) <= reg_i.set_MixedRegister_div1_i(7 downto 0);
-
-  --External Clear Connection
-  regclear_s(5)(0) <= '1' when reg_i.clear_MixedRegister_pulse1_i = '1' else '0';
-  regclear_s(5)(1) <= '1' when reg_i.clear_MixedRegister_w2c1_i = '1'   else regwrite_s(5)(1);
-  regclear_s(5)(2) <= '1' when reg_i.clear_MixedRegister_ro1_i = '1'    else '0';
-
 
 end rtl;
+

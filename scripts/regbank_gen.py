@@ -408,7 +408,7 @@ class RegisterBank(vhdl.BasicVHDL):
                 try:
                     if register[bit].externalClear:
                         if self.useRecords:
-                            self.pkg.packageDeclaration.record["reg_i"].add(
+                            self.pkg.declaration.record["reg_i"].add(
                                 "clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
                         else:
                             self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
@@ -479,35 +479,35 @@ class RegisterBank(vhdl.BasicVHDL):
     def createRecordsFromRegisters(self):
         for reg in self.reg:
             # add constant with register offset
-            self.pkg.packageDeclaration.constant.add(self.reg[reg].name + "_offset_c", "unsigned(%d downto 0)"
-                                                     % (self.datasize - 1), "to_unsigned(%d,%d)" % (reg, self.datasize))
+            self.pkg.declaration.constant.add(self.reg[reg].name + "_offset_c", "unsigned(%d downto 0)"
+                                              % (self.datasize - 1), "to_unsigned(%d,%d)" % (reg, self.datasize))
             for bit in self.reg[reg]:
                 if self.reg[reg][bit] != ["empty"]:
                     # add constant with bit offset and width
-                    self.pkg.packageDeclaration.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_offset_c", "natural",
-                                                             "%d" % bit)
-                    self.pkg.packageDeclaration.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_width_c", "natural",
-                                                             "%d" % self.reg[reg][bit].size)
+                    self.pkg.declaration.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_offset_c", "natural",
+                                                      "%d" % bit)
+                    self.pkg.declaration.constant.add(self.reg[reg].name + "_" + self.reg[reg][bit].name + "_width_c", "natural",
+                                                      "%d" % self.reg[reg][bit].size)
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
-                        self.pkg.packageDeclaration.record["reg_i"].add(
+                        self.pkg.declaration.record["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
                     elif self.reg[reg][bit].regType == "ReadWrite":
-                        self.pkg.packageDeclaration.record["reg_o"].add(
+                        self.pkg.declaration.record["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
-                        self.pkg.packageDeclaration.record["reg_i"].add(
+                        self.pkg.declaration.record["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"), self.reg[reg][bit].vhdlType)
-                        self.pkg.packageDeclaration.record["reg_o"].add(
+                        self.pkg.declaration.record["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"), self.reg[reg][bit].vhdlType)
                     elif self.reg[reg][bit].regType == "Write2Clear":
-                        self.pkg.packageDeclaration.record["reg_i"].add(
+                        self.pkg.declaration.record["reg_i"].add(
                             "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
                         if self.reg[reg][bit].externalClear:
-                            self.pkg.packageDeclaration.record["reg_i"].add(
+                            self.pkg.declaration.record["reg_i"].add(
                                 "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
                     elif self.reg[reg][bit].regType == "Write2Pulse":
-                        self.pkg.packageDeclaration.record["reg_o"].add(
+                        self.pkg.declaration.record["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
 
     def code(self):
