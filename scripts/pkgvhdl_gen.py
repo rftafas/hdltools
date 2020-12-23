@@ -21,15 +21,16 @@ import math
 class PackageDeclarationObj:
     def __init__(self, name):
         self.name = name
-        self.generic = vhdl.genericList()
-        self.constant = vhdl.constantList()
-        self.component = vhdl.componentList()
-        self.signal = vhdl.signalList()
+        self.generic = vhdl.GenericList()
+        self.constant = vhdl.ConstantList()
+        self.component = vhdl.ComponentList()
+        self.record = vhdl.RecordList()
+        self.signal = vhdl.SignalList()
         self.functions = ""
         self.procedures = ""
-        self.customTypes = vhdl.genericCodeBlock(1)
-        self.declarationHeader = vhdl.genericCodeBlock(1)
-        self.declarationFooter = vhdl.genericCodeBlock(1)
+        self.customTypes = vhdl.GenericCodeBlock(1)
+        self.declarationHeader = vhdl.GenericCodeBlock(1)
+        self.declarationFooter = vhdl.GenericCodeBlock(1)
 
     def code(self):
         hdl_code = vhdl.indent(0) + ("entity %s is\r\n" % self.name)
@@ -60,8 +61,8 @@ class PackageBodyObj:
         self.name = name
         self.functions = ""
         self.procedures = ""
-        self.bodyCodeHeader = vhdl.genericCodeBlock(1)
-        self.bodyCodeFooter = vhdl.genericCodeBlock(1)
+        self.bodyCodeHeader = vhdl.GenericCodeBlock(1)
+        self.bodyCodeFooter = vhdl.GenericCodeBlock(1)
 
     def code(self):
         hdl_code = ""
@@ -86,9 +87,12 @@ class PackageBodyObj:
 
 class PkgVHDL:
     def __init__(self, name):
-        self.library = vhdl.libraryList()
+        self.library = vhdl.LibraryList()
         self.packageDeclaration = PackageDeclarationObj(name)
         self.packageBody = PackageBodyObj(name)
+
+    def addRecord(self, name):
+        self.packageDeclaration.record[name] = vhdl.RecordList(name)
 
     def write_file(self):
         hdl_code = self.code()
@@ -107,6 +111,36 @@ class PkgVHDL:
         return True
 
     def code(self):
+        # hdl_code = indent(0) + ("package %s is\r\n" % self.name)
+        # hdl_code = hdl_code + indent(1) + ("-- constants  (\r\n")
+        # if (self.constant):
+        #     hdl_code = hdl_code + self.constant.code(1)
+        #     hdl_code = hdl_code + "\r\n"
+        # else:
+        #     hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
+        #     hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        #
+        # for i in self.rec:
+        #     hdl_code = hdl_code + indent(1) + ("-- records (\r\n")
+        #     if (self.rec[i]):
+        #         hdl_code = hdl_code + self.rec[i].code(1)
+        #     else:
+        #         hdl_code = hdl_code + indent(2) + ("-- records_declaration_tag\r\n")
+        #         hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        #
+        # hdl_code = hdl_code + indent(1) + ("-- records initialization constants (\r\n")
+        # for i in self.rec:
+        #     if (self.rec[i]):
+        #         hdl_code = hdl_code + self.rec[i].code_init(1)
+        #     else:
+        #         hdl_code = hdl_code + indent(2) + ("-- records_init_declaration_tag\r\n")
+        #         hdl_code = hdl_code + indent(1) + ("--);\r\n")
+        #
+        # hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
+        # hdl_code = hdl_code + "\r\n"
+        # return hdl_code
+        #
+        # return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
         hdl_code = ""
         hdl_code = hdl_code + self.library.code()
         hdl_code = hdl_code + self.packageDeclaration.code()

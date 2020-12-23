@@ -58,7 +58,7 @@ def dictCode(DictInput, indent_level=0):
 # ------------------- Library -----------------------
 
 
-class LibraryPackageObj:
+class PackageObj:
     def __init__(self, name, *args):
         self.source = "File Location Unknown."
         self.name = name
@@ -68,9 +68,9 @@ class LibraryPackageObj:
             self.operator = "all"
 
 
-class LibraryPackageList(dict):
+class PackageList(dict):
     def add(self, name, *args):
-        self[name] = LibraryPackageObj(name)
+        self[name] = PackageObj(name)
         if args:
             self[name].operator = args[0]
 
@@ -78,12 +78,12 @@ class LibraryPackageList(dict):
 class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
-        self.libPkg = LibraryPackageList()
+        self.package = PackageList()
 
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
-        for j in self.libPkg:
+        for j in self.package:
             hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
         return hdl_code
 
@@ -255,7 +255,6 @@ class VariableObj:
 class VariableList(dict):
     def add(self, name, type, *args):
         self[name] = VariableObj(name, type, *args)
-    def code(self, indent_level=0):
 
     def code(self, indent_level=0):
         return dictCode(self)
@@ -369,52 +368,6 @@ class ComponentInstanceList(dict):
         for j in self.list:
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
-# ------------------- Package -----------------------
-
-
-class Package:
-    def __init__(self, name):
-        self.name = name
-        self.constant = ConstantList()
-        self.rec = RecordList()
-
-    def addRecord(self, name):
-        self.rec[name] = RecordList(name)
-
-    def code(self, indent_level=0):
-        hdl_code = indent(0) + ("package %s is\r\n" % self.name)
-        hdl_code = hdl_code + indent(1) + ("-- constants  (\r\n")
-        if (self.constant):
-            hdl_code = hdl_code + self.constant.code(1)
-            hdl_code = hdl_code + "\r\n"
-        else:
-            hdl_code = hdl_code + indent(2) + ("--constant_declaration_tag\r\n")
-            hdl_code = hdl_code + indent(1) + ("--);\r\n")
-
-        for i in self.rec:
-            hdl_code = hdl_code + indent(1) + ("-- records (\r\n")
-            if (self.rec[i]):
-                hdl_code = hdl_code + self.rec[i].code(1)
-            else:
-                hdl_code = hdl_code + indent(2) + ("-- records_declaration_tag\r\n")
-                hdl_code = hdl_code + indent(1) + ("--);\r\n")
-
-        hdl_code = hdl_code + indent(1) + ("-- records initialization constants (\r\n")
-        for i in self.rec:
-            if (self.rec[i]):
-                hdl_code = hdl_code + self.rec[i].code_init(1)
-            else:
-                hdl_code = hdl_code + indent(2) + ("-- records_init_declaration_tag\r\n")
-                hdl_code = hdl_code + indent(1) + ("--);\r\n")
-
-        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
-        hdl_code = hdl_code + "\r\n"
-        return hdl_code
-
-        return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
-
-
-# ------------------- Entity -----------------------
 
 # ------------------- Entity -----------------------
 
