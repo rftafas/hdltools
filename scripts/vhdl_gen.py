@@ -120,20 +120,25 @@ class GenericList(dict):
 
 
 class PortObj:
-    def __init__(self, name, direction, type):
+    def __init__(self, name, direction, type, init):
         self.name = name
         self.direction = direction
         self.type = type
+        self.init = init
 
     def code(self, indent_level=0):
-        hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
+        if self.init is None:
+            hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
+        else:
+            hdl_code = indent(indent_level + 2) + ("%s : %s %s := %s;\r\n" %
+                                                   (self.name, self.direction, self.type, self.init))
         return hdl_code
 
 
 
 class PortList(dict):
-    def add(self, name, direction, type):
-        self[name] = PortObj(name, direction, type)
+    def add(self, name, direction, type, init=None):
+        self[name] = PortObj(name, direction, type, init)
 
     def code(self, indent_level=0):
         return VHDLenum(self)
@@ -262,12 +267,22 @@ class SignalList(dict):
 # note: this will be deprecated towards more generic custom type creation.
 
 class RecordObj:
-    def __init__(self, name, type):
+    def __init__(self, name, type, init=None):
         self.name = name
         self.type = type
+        if init is None:
+            if self.type == "std_logic":
+                self.init = "'0'"
+            else:
+                self.init = "(others => '0')"
+        else:
+            self.init = init
 
     def code(self, indent_level=0):
         return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
+
+    def code_init(self, indent_level=0):
+        return indent(indent_level + 1) + ("%s => %s,\r\n" % (self.name, self.init))
 
 
 class RecordList(dict):
