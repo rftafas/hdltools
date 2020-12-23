@@ -74,9 +74,9 @@ architecture bench of myregbank_tb is
     );
 
   -- Signal ports
-  signal S_AXI_ACLK    : std_logic;
-  signal S_AXI_ARESETN : std_logic;
-  signal reg_i         : reg_i_t;
+  signal S_AXI_ACLK    : std_logic := '0';
+  signal S_AXI_ARESETN : std_logic := '0';
+  signal reg_i         : reg_i_t   := reg_i_init_c;
   signal reg_o         : reg_o_t;
 
   signal axilite_if : ST_AXILite_32;
@@ -156,8 +156,9 @@ begin
                     axilite_if);  -- Signal must be visible in local process scope
     end;
 
-    variable data_output : std_logic_vector(31 downto 0);
-
+    variable data_output       : std_logic_vector(31 downto 0) := (others => '0');
+    variable data_before_write : std_logic_vector(31 downto 0) := (others => '0');
+    variable test_case         : natural                       := 0;
   begin
 
     test_runner_setup(runner, runner_cfg);
@@ -168,17 +169,33 @@ begin
         uvvm_util.methods_pkg.log("Starting Simulation to test auto-genered regbank.");
 
         wait until s_axi_aresetn = '1';
+        uvvm_util.methods_pkg.log("s_axi_aresetn = 1.");
         wait for 5*axi_aclk_period_c;
-
         -- AXI bus reset.
         axilite_if <= init_axilite_if_signals(32, 32);
+        uvvm_util.methods_pkg.log("axilite_if reset.");
 
         wait for 5*axi_aclk_period_c;
-
-        axilite_write(Golden_offset_c, x"FFFFFFFF", "First transaction write");
-        axilite_write(ReadWrite1_offset_c, x"FFFFFFFF", "First transaction write");
-        axilite_write(ReadWrite2_offset_c, x"FFFFFFFF", "First transaction write");
-        axilite_write(WriteToClear_offset_c, x"FFFFFFFF", "First transaction write");
+        for i in 1 to 5 loop
+          wait_num_rising_edge(S_AXI_ACLK, 1);
+          test_case := random(1, 2);
+          uvvm_util.methods_pkg.log("Test case number: " & to_string(test_case));
+          case test_case is
+            when 1 =>
+              data_before_write := reg_i.Golden_g1_i;
+              axilite_write(Golden_offset_c, random(C_S_AXI_DATA_WIDTH), "Write to read only register");
+              wait_num_rising_edge(S_AXI_ACLK, 1);
+              axilite_read(Golden_offset_c, data_output, "Reading");
+            -- axilite_check(Golden_offset_c, data_before_write, "Check no change");
+            when 2 =>
+              reg_i.Golden_g1_i <= random(reg_i.Golden_g1_i'length);
+              wait_num_rising_edge(S_AXI_ACLK, 1);
+              axilite_read(Golden_offset_c, data_output, "Reading");
+            -- axilite_check(Golden_offset_c, reg_i.Golden_g1_i, "Check no change");
+            when others =>
+          end case;
+          wait for random(1 ns, 500 ns);
+        end loop;
 
         wait for 100 ns;
         test_runner_cleanup(runner);
