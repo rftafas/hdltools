@@ -252,7 +252,7 @@ def getSuffix(direction):
 
 
 class RegisterBit:
-    def __init__(self, name, type):
+    def __init__(self, name, type, init):
         if type in RegisterTypeSet:
             self.regType = type
         else:
@@ -265,29 +265,41 @@ class RegisterBit:
         self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
+        if init is None:
+            self.init = "'0'"
+        else:
+            self.init = init
 
 
 class RegisterSlice(RegisterBit):
-    def __init__(self, name, type, size):
-        RegisterBit.__init__(self, name, type)
+    def __init__(self, name, type, size, init):
+        RegisterBit.__init__(self, name, type, init)
         self.size = size
         self.vhdlrange = "(%d downto 0)" % size
         self.vhdlType = "std_logic_vector(%d downto 0)" % (size-1)
+        if init is None:
+            self.init = "(others => '0')"
+        else:
+            self.init = init
 
 
 class RegisterWord(dict):
-    def __init__(self, name, size):
+    def __init__(self, name, size, init=None):
         dict.__init__(self)
         self.name = name
         for j in range(size):
             self[j] = ["empty"]
+        if init is None:
+            self.init = "(others => '0')"
+        else:
+            self.init = init
 
-    def add(self, name, type, start, size):
+    def add(self, name, type, start, size, init=None):
         if "empty" in self[start]:
             if size > 1:
-                self[start] = RegisterSlice(name, type, size)
+                self[start] = RegisterSlice(name, type, size, init)
             else:
-                self[start] = RegisterBit(name, type)
+                self[start] = RegisterBit(name, type, init)
                 for j in range(start+1, start+size):
                     if "empty" in self[j]:
                         self[j] = name+"(%d)" % j
@@ -315,6 +327,9 @@ class RegisterBank(vhdl.BasicVHDL):
             self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
             self.pkg.addRecord("reg_i")
             self.pkg.addRecord("reg_o")
+            self.pkg.library.add("IEEE")
+            self.pkg.library["IEEE"].package.add("std_logic_1164")
+            self.pkg.library["IEEE"].package.add("numeric_std")
 
         # Libraries
         self.library.add("IEEE")
@@ -535,24 +550,31 @@ class RegisterBank(vhdl.BasicVHDL):
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
                         self.pkg.declaration.record["reg_i"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "ReadWrite":
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
                         self.pkg.declaration.record["reg_i"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"), self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"),
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"), self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"),
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Clear":
                         self.pkg.declaration.record["reg_i"].add(
-                            "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         if self.reg[reg][bit].externalClear:
                             self.pkg.declaration.record["reg_i"].add(
-                                "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                                "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                                self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Pulse":
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
 
     def code(self):
         if (not self.generate_code):
@@ -603,9 +625,10 @@ if __name__ == '__main__':
     # this is an example for a read/write generic register.
     myregbank.add(1, "myReadWrite1")
     myregbank.reg[1].add("myReadWrite1", "ReadWrite", 0, 32)
-    # this is an example for a read/write generic register with external clear.
+    # this is an example for a read/write generic register with external clear. It is possible
+    # to choose an init value for any field
     myregbank.add(2, "myReadWrite2")
-    myregbank.reg[2].add("myReadWrite2", "ReadWrite", 0, 32)
+    myregbank.reg[2].add("myReadWrite2", "ReadWrite", 0, 32, "x\"00000023\"")
     myregbank.reg[2].externalClear = True
     # this is an example of a write to clear register
     myregbank.add(3, "MyWriteToClear")
@@ -623,7 +646,7 @@ if __name__ == '__main__':
     myregbank.reg[5][0].externalClear = True  # for example, we want to kill the pulse.
     myregbank.reg[5].add("Write2ClearBit", "Write2Clear", 1, 1)
     myregbank.reg[5][1].externalClear = True  # either my write or the external can clear it.
-    myregbank.reg[5].add("ReadOnlyBit", "ReadOnly", 2, 1)
+    myregbank.reg[5].add("ReadOnlyBit", "ReadOnly", 2, 1, "'1'")
     myregbank.reg[5][2].externalClear = True  # I can force a '0' read.
     myregbank.reg[5].add("DivByte1", "Write2Clear", 8, 8)
     myregbank.reg[5].add("DivByte2", "ReadWrite", 16, 8)
