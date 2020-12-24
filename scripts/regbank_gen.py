@@ -560,7 +560,7 @@ class RegisterBank(vhdl.BasicVHDL):
             if self.useRecords:
                 self.createRecordsFromRegisters()
             else:
-                self.RegisterPortAdd()
+                self.registerPortAdd()
             self.generate_code = True
 
         hdl_code = vhdl.BasicVHDL.code(self)
