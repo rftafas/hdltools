@@ -527,6 +527,15 @@ class RegisterBank(vhdl.BasicVHDL):
         return vhdl.BasicVHDL.write_file(self)
 
 
+        output_file.close()
+
+        # call also Package.write_file(). It must be called after RegisterBank code()
+        # because the method createRecordsFromRegisters is called inside it
+        if self.useRecords:
+            self.pkg.write_file()
+        return True
+
+
 if __name__ == '__main__':
 
     # first we declare a register bank.
