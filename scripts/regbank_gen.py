@@ -252,7 +252,7 @@ def GetSuffix(direction):
 
 
 class RegisterBit:
-    def __init__(self, name, type):
+    def __init__(self, name, type, init):
         if type in RegisterTypeSet:
             self.regType = type
         else:
@@ -265,29 +265,41 @@ class RegisterBit:
         self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
+        if init is None:
+            self.init = "'0'"
+        else:
+            self.init = init
 
 
 class RegisterSlice(RegisterBit):
-    def __init__(self, name, type, size):
-        RegisterBit.__init__(self, name, type)
+    def __init__(self, name, type, size, init):
+        RegisterBit.__init__(self, name, type, init)
         self.size = size
         self.vhdlrange = "(%d downto 0)" % size
         self.vhdlType = "std_logic_vector(%d downto 0)" % (size-1)
+        if init is None:
+            self.init = "(others => '0')"
+        else:
+            self.init = init
 
 
 class RegisterWord(dict):
-    def __init__(self, name, size):
+    def __init__(self, name, size, init=None):
         dict.__init__(self)
         self.name = name
         for j in range(size):
             self[j] = ["empty"]
+        if init is None:
+            self.init = "(others => '0')"
+        else:
+            self.init = init
 
-    def add(self, name, type, start, size):
+    def add(self, name, type, start, size, init=None):
         if "empty" in self[start]:
             if size > 1:
-                self[start] = RegisterSlice(name, type, size)
+                self[start] = RegisterSlice(name, type, size, init)
             else:
-                self[start] = RegisterBit(name, type)
+                self[start] = RegisterBit(name, type, init)
                 for j in range(start+1, start+size):
                     if "empty" in self[j]:
                         self[j] = name+"(%d)" % j
@@ -491,24 +503,31 @@ class RegisterBank(vhdl.BasicVHDL):
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
                         self.pkg.declaration.record["reg_i"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "ReadWrite":
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
                         self.pkg.declaration.record["reg_i"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"), self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"),
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"), self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"),
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Clear":
                         self.pkg.declaration.record["reg_i"].add(
-                            "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         if self.reg[reg][bit].externalClear:
                             self.pkg.declaration.record["reg_i"].add(
-                                "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                                "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                                self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Pulse":
                         self.pkg.declaration.record["reg_o"].add(
-                            self.reg[reg].name + "_" + self.reg[reg][bit].name, self.reg[reg][bit].vhdlType)
+                            self.reg[reg].name + "_" + self.reg[reg][bit].name,
+                            self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
 
     def code(self):
         if (not self.generate_code):

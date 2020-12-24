@@ -289,8 +289,8 @@ class RecordList(dict):
     def __init__(self, name="empty"):
         self.name = name
 
-    def add(self, name, type):
-        self[name] = RecordObj(name, type)
+    def add(self, name, type, init=None):
+        self[name] = RecordObj(name, type, init)
 
     def code(self, indent_level=0):
         hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
