@@ -27,7 +27,7 @@ class PackageDeclarationObj:
         self.signal = vhdl.signalList()
         self.functions = ""
         self.procedures = ""
-        self.customTypes = vhdl.genericCodeBlock(1)
+        self.customTypes = vhdl.customTypeList()
         self.declarationHeader = vhdl.genericCodeBlock(1)
         self.declarationFooter = vhdl.genericCodeBlock(1)
 
@@ -46,7 +46,7 @@ class PackageDeclarationObj:
         hdl_code = hdl_code + self.constant.code()
         hdl_code = hdl_code + self.customTypes.code()
         hdl_code = hdl_code + self.signal.code()
-        #hdl_code = hdl_code + self.functions.declaration()
+        hdl_code = hdl_code + self.functions.declaration()
         #hdl_code = hdl_code + self.procedures.declaration()
         hdl_code = hdl_code + self.component.code()
         hdl_code = hdl_code + self.declarationFooter.code()
@@ -71,7 +71,7 @@ class PackageBodyObj:
             hdl_code = hdl_code + self.bodyCodeHeader.code()
             hdl_code = hdl_code + "\r\n"
         if (self.functions):
-            #hdl_code = hdl_code + self.functions.code()
+            hdl_code = hdl_code + self.functions.code()
             hdl_code = hdl_code + "\r\n"
         if (self.procedures):
             #hdl_code = hdl_code + self.procedures.code()
