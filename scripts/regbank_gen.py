@@ -580,16 +580,10 @@ class RegisterBank(vhdl.BasicVHDL):
 
         output_file.close()
 
+        # call also Package.write_file(). It must be called after RegisterBank code()
+        # because the method createRecordsFromRegisters is called inside it
         if self.useRecords:
-            hdl_code = self.library["IEEE"].code()
-            hdl_code = hdl_code + self.pkg.code()
-
-            output_file_name = "output/"+self.entity.name+"_pkg.vhd"
-            output_file = open(output_file_name, "w+")
-            for line in hdl_code:
-                output_file.write(line)
-
-            output_file.close()
+            self.pkg.write_file()
         return True
 
 
