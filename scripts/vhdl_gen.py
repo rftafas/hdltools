@@ -435,6 +435,8 @@ class functionObj:
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         return hdl_code
 
+# ------------------- Component -----------------------
+
 class ComponentObj:
     def __init__(self, name):
         self.name = name
