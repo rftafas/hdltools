@@ -18,9 +18,7 @@ import os
 
 # TODO:
 # process
-# Functions
 # Procedures
-# Custom Custom
 # Block
 
 try:
@@ -97,6 +95,8 @@ class LibraryList(dict):
 
 
 # ------------------- Generic -----------------------
+
+
 class GenericObj:
     def __init__(self, name, type, init_value):
         self.name = name
@@ -117,6 +117,8 @@ class GenericList(dict):
 
 
 # ------------------- Port -----------------------
+
+
 class PortObj:
     def __init__(self, name, direction, type):
         self.name = name
@@ -135,8 +137,82 @@ class PortList(dict):
     def code(self, indent_level=0):
         return VHDLenum(self)
 
+# ------------------- Custom Types -----------------------
+
+
+class IncompleteTypeObj:
+    def __init__(self, name):
+        self.name = name
+
+    def code(self):
+        hdl_code = "type %s;" % self.name
+        return hdl_code
+
+class EnumerationTypeObj:
+    def __init__(self, name, *args):
+        self.name = name
+        self.type = type
+        self.typeElement = []
+        if args:
+            for element in args[0]:
+                self.typeElement.append("%s," % element)
+
+    def add(self,input):
+        if isinstance(name, list):
+            for element in args[0]:
+                self.typeElement.append("%s," % element)
+        else:
+            self.typeElement.append("%s," % input)
+
+    def code(self):
+        hdl_code = ""
+        hdl_code = "type %s is (%s);" % (self.name,VHDLenum(self.typeElement))
+        return hdl_code
+
+class ArrayTypeObj:
+    def __init__(self, name, *args):
+        self.name = name
+        self.arrayRange = args[0]
+        self.arrayType = args[1]
+
+    def code(self):
+        hdl_code = indent(1) + "type %s is array (%s) of %s;" % (self.name,self.arrayRange,self.arrayType)
+        return hdl_code
+
+class RecordTypeObj:
+    def __init__(self, name, *args):
+        self.name = name
+
+        if args:
+            self.element = arg[0]
+        else:
+            self.element = genericList()
+
+    def add(self, name, type, init):
+        self.element.add(name, type, init)
+
+    def code(self):
+        hdl_code = "type %s is record\r\n" % self.name
+        hdl_code = self.element.code()
+        hdl_code = "end record %s;" % self.name
+
+class CustomTypeList(dict):
+    def add(self, name, type, *args):
+        if "Array" in type:
+            self[name] = ArrayTypeObj(name, *args)
+        elif "Enumeration" in type:
+            self[name] = ArrayTypeObj(name, *args)
+        elif "Record" in type:
+            self[name] = RecordTypeObj(name, *args)
+        else:
+            self[name] = IncompleteTypeObj(name)
+
+    def code(self, indent_level=0):
+        return dictCode(self)
 
 # ------------------- Constant -----------------------
+
+
 class ConstantObj:
     def __init__(self, name, type, init):
         self.name = name
@@ -156,6 +232,8 @@ class ConstantList(dict):
 
 
 # ------------------- Signals -----------------------
+
+
 class SignalObj:
     def __init__(self, name, type, *args):
         self.name = name
@@ -180,7 +258,7 @@ class SignalList(dict):
         return dictCode(self)
 
 # ------------------- Records -----------------------
-
+# note: this will be deprecated towards more generic custom type creation.
 
 class RecordObj:
     def __init__(self, name, type):
@@ -204,6 +282,7 @@ class RecordList(dict):
         hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
         hdl_code = hdl_code + "\r\n"
         return hdl_code
+
 
 # ------------------- Variables -----------------------
 
@@ -246,10 +325,14 @@ class GenericCodeBlock:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
         return hdl_code
 
-class functionObj:
+# ------------------- Functions & Procedures -----------------------
+
+
+class FunctionObj:
     def __init__(self, name):
         self.name = name
         # todo: generic types here.
+        self.customTypes = CustomTypeList()
         self.generic = genericList()
         # function parameters in VHDL follow the same fashion as
         # generics on a portmap. name : type := init value;
@@ -276,11 +359,13 @@ class functionObj:
 
     def _code(self):
         hdl_code = indent(0) + ("function %s" % self.name)
-        if (self.generic):
+        if (self.generic|self.customTypes):
             hdl_code = hdl_code + ("\r\n")
             hdl_code = hdl_code + indent(1) + ("generic (\r\n")
-            # todo: generic types here.
-            hdl_code = hdl_code + self.generic.code()
+            if (self.customTypes):
+                hdl_code = hdl_code + self.customTypes.code()
+            if (self.generic):
+                hdl_code = hdl_code + self.generic.code()
             hdl_code = hdl_code + indent(1) + (")\r\n")
             hdl_code = hdl_code + indent(1) + ("parameter")
         if (self.parameter):
@@ -350,7 +435,7 @@ class functionObj:
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         return hdl_code
 
-class componentObj:
+class ComponentObj:
     def __init__(self, name):
         self.name = name
         self.generic = GenericList()
@@ -379,10 +464,9 @@ class componentObj:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-
 class ComponentList(dict):
     def add(self, name):
-        self[name] = componentObj(name)
+        self[name] = ComponentObj(name)
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -390,8 +474,9 @@ class ComponentList(dict):
             hdl_code = hdl_code + self.list[j].code()
         return hdl_code
 
-
 # ------------------- Instance -----------------------
+
+
 class InstanceObj:
     def __init__(self, name, value):
         self.name = name
@@ -483,7 +568,7 @@ class Architecture:
         self.component = ComponentList()
         self.functions = ""
         self.procedures = ""
-        self.customTypes = GenericCodeBlock(1)
+        self.customTypes = CustomTypeList()
         self.declarationHeader = GenericCodeBlock(1)
         self.declarationFooter = GenericCodeBlock(1)
         self.bodyCodeHeader = GenericCodeBlock(1)
@@ -568,3 +653,41 @@ class BasicVHDL:
         hdl_code = hdl_code + self.entity.code()
         hdl_code = hdl_code + self.architecture.code()
         return hdl_code
+
+if __name__ == '__main__':
+
+    ram = BasicVHDL("ram","behavioral")
+    ram.library.add("IEEE")
+    ram.library["IEEE"].package.add("numeric_std")
+    ram.library.add("stdexpert")
+    ram.library["stdexpert"].package.add("std_logic_expert")
+
+    ram.entity.generic.add("data_size", "positive", "8")
+    ram.entity.generic.add("addr_size", "positive", "4")
+
+    ram.entity.port.add("rst_i", "in", "std_logic")
+    ram.entity.port.add("clk_i", "in", "std_logic")
+    ram.entity.port.add("we_i", "in", "std_logic")
+    ram.entity.port.add("data_i", "in", "std_logic_vector(data_size-1 downto 0)")
+    ram.entity.port.add("data_o", "out", "std_logic_vector(data_size-1 downto 0)")
+    ram.entity.port.add("addr_i", "in", "std_logic_vector(addr_size-1 downto 0)")
+    ram.entity.port.add("addr_o", "in", "std_logic_vector(addr_size-1 downto 0)")
+
+    ram.architecture.customTypes.add("ram_t","Array","2**addr_size-1 downto 0","std_logic_vector(data_size-1 dwonto 0)")
+
+    ram.architecture.signal.add("ram_s", "ram_t")
+    ram.architecture.declarationFooter.add("--Test adding custom declarative code.")
+    ram.architecture.bodyCodeFooter.add("ram_p : process(all)")
+    ram.architecture.bodyCodeFooter.add("begin")
+    ram.architecture.bodyCodeFooter.add("  if rising_edge(clk_i) then")
+    ram.architecture.bodyCodeFooter.add("    if we_i = '1' then")
+    ram.architecture.bodyCodeFooter.add("      ram_s(to_integer(addr_i)) <= data_i;")
+    ram.architecture.bodyCodeFooter.add("    end if;")
+    ram.architecture.bodyCodeFooter.add("    data_o <= ram_s(to_integer(addr_o));")
+    ram.architecture.bodyCodeFooter.add("  end if;")
+    ram.architecture.bodyCodeFooter.add("end process;")
+
+    print ("----------------file starts--------------------")
+    print (ram.code())
+    print ("----------------file ends--------------------")
+    ram.write_file()

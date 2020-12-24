@@ -265,7 +265,6 @@ class RegisterBit:
         self.radix = name
         self.size = 1
 
-
 class RegisterSlice(RegisterBit):
     def __init__(self, name, type, size):
         RegisterBit.__init__(self, name, type)
@@ -347,7 +346,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
         # Custom type
-        self.architecture.customTypes.add("type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        self.architecture.customTypes.add("reg_t", "Array", "REG_NUM-1 downto 0", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
         # Signals
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
