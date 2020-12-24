@@ -69,15 +69,29 @@ class PackageBodyObj:
         hdl_code = ""
         hdl_code = vhdl.indent(indent_level) + ("package body %s is\r\n" % self.name)
         hdl_code = hdl_code + "\r\n"
+        # Header
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeHeader.code(indent_level)
             hdl_code = hdl_code + "\r\n"
+        # Functions
+        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Functions  (\r\n")
         if (self.functions):
             hdl_code = hdl_code + self.functions.code()
             hdl_code = hdl_code + "\r\n"
+        else:
+            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- functions_declaration_tag\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+
+        # Procedures
+        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Procedures  (\r\n")
         if (self.procedures):
             #hdl_code = hdl_code + self.procedures.code()
             hdl_code = hdl_code + "\r\n"
+        else:
+            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- procedures_declaration_tag\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+
+        # Footer
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeFooter.code(indent_level)
             hdl_code = hdl_code + "\r\n"
@@ -101,7 +115,7 @@ class PkgVHDL:
         if (not os.path.exists("output")):
             os.makedirs("output")
 
-        output_file_name = "output/"+self.entity.name+".vhd"
+        output_file_name = "output/"+self.declaration.name+".vhd"
         # to do: check if file exists. If so, emit a warning and
         # check if must clear it.
         output_file = open(output_file_name, "w+")
