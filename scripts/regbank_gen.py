@@ -269,7 +269,11 @@ class RegisterBit:
             self.init = "'0'"
         else:
             self.init = init
+        self.inRecord = False
 
+    def toRecord(self,record_name):
+        self.inRecord = True
+        self.recordName = record_name
 
 class RegisterSlice(RegisterBit):
     def __init__(self, name, type, size, init):
@@ -309,6 +313,12 @@ class RegisterWord(dict):
             print("This reg is already occupied by %s" % self[start].name)
 
 
+
+class RegisterRecord(RegisterWord):
+    def __init__(self, name, size, init=None):
+        RegisterWord.__init__(self, name, size, init)
+
+
 class RegisterList(dict):
     def add(self, number, Register):
         self[number] = Register
@@ -322,12 +332,19 @@ class RegisterBank(vhdl.BasicVHDL):
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber, 2))
 
+        self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
+        self.pkg.library.add("IEEE")
+        self.pkg.library["IEEE"].package.add("std_logic_1164")
+        self.pkg.library["IEEE"].package.add("numeric_std")
+
         # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].package.add("std_logic_1164")
         self.library["IEEE"].package.add("numeric_std")
         self.library.add("expert")
         self.library["expert"].package.add("std_logic_expert")
+        self.work.add(self.pkg.name)
+
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
@@ -353,9 +370,6 @@ class RegisterBank(vhdl.BasicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-        if self.useRecords:
-            self.entity.port.add("reg_i", "in", "reg_i_t")
-            self.entity.port.add("reg_o", "out", "reg_o_t", "reg_o_init_c")
 
         # Architecture
         # Constant
@@ -396,6 +410,9 @@ class RegisterBank(vhdl.BasicVHDL):
 
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)
+
+    def addPortRecord(self, name):
+        self.architecture.customTypes.add(name,"Record",)
 
     def add(self, number, name):
         self.reg.add(number, RegisterWord(name, self.datasize))

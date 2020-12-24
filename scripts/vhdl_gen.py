@@ -65,6 +65,13 @@ class PackageObj:
         else:
             self.operator = "all"
 
+    def code(self, libname="work"):
+        indent_tmp = 1
+        if (libname == "work"):
+            indent_tmp = 0
+        hdl_code = hdl_code + indent(indent_tmp) + ("use %s.%s.%s;\r\n" % (libname, self.name, self.operator))
+        return hdl_code
+
 
 class PackageList(dict):
     def add(self, name, *args):
@@ -72,6 +79,9 @@ class PackageList(dict):
         if args:
             self[name].operator = args[0]
 
+    def code(self, libname="work"):
+        for eachPkg in self.package:
+            hdl_code = hdl_code + self.package[eachPkg].code(self.name,libname)
 
 class LibraryObj:
     def __init__(self, name, *args):
@@ -81,8 +91,7 @@ class LibraryObj:
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
-        for j in self.package:
-            hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
+        hdl_code = hdl_code + self.package.code(self.name)
         return hdl_code
 
 
@@ -636,6 +645,7 @@ class Architecture:
 class BasicVHDL:
     def __init__(self, entity_name, architecture_name):
         self.library = LibraryList()
+        self.work = PackageList()
         self.entity = Entity(entity_name)
         self.architecture = Architecture(architecture_name, entity_name)
 
@@ -670,6 +680,7 @@ class BasicVHDL:
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + self.library.code()
+        hdl_code = hdl_code + self.work.code()
         hdl_code = hdl_code + self.entity.code()
         hdl_code = hdl_code + self.architecture.code()
         return hdl_code

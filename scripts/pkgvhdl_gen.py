@@ -102,12 +102,14 @@ class PackageBodyObj:
 
 class PkgVHDL:
     def __init__(self, name):
+        self.name = name
         self.library = vhdl.LibraryList()
         self.declaration = PackageDeclarationObj(name)
         self.body = PackageBodyObj(name)
+        self.packageDeclaration = vhdl.PackageObj(name)
 
-    def addRecord(self, name):
-        self.declaration.record[name] = vhdl.RecordList(name)
+    def object(self):
+        return self.packageDeclaration;
 
     def write_file(self):
         hdl_code = self.code()
@@ -115,7 +117,7 @@ class PkgVHDL:
         if (not os.path.exists("output")):
             os.makedirs("output")
 
-        output_file_name = "output/"+self.declaration.name+".vhd"
+        output_file_name = "output/"+self.name+".vhd"
         # to do: check if file exists. If so, emit a warning and
         # check if must clear it.
         output_file = open(output_file_name, "w+")
