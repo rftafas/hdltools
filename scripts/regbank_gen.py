@@ -267,10 +267,14 @@ class RegisterBit:
         self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
+        self.description = ""
         if init is None:
             self.init = "'0'"
         else:
             self.init = init
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterSlice(RegisterBit):
@@ -279,16 +283,21 @@ class RegisterSlice(RegisterBit):
         self.size = size
         self.vhdlrange = "(%d downto 0)" % size
         self.vhdlType = "std_logic_vector(%d downto 0)" % (size-1)
+        self.description = ""
         if init is None:
             self.init = "(others => '0')"
         else:
             self.init = init
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterWord(dict):
     def __init__(self, name, size, init=None):
         dict.__init__(self)
         self.name = name
+        self.description = ""
         for j in range(size):
             self[j] = ["empty"]
         if init is None:
@@ -310,10 +319,17 @@ class RegisterWord(dict):
         else:
             print("This reg is already occupied by %s" % self[start].name)
 
+    def addDescription(self, str):
+        self.description = str
+
 
 class RegisterList(dict):
     def add(self, number, Register):
         self[number] = Register
+        self.description = ""
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterBank(vhdl.BasicVHDL):
@@ -324,7 +340,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(registerNumber, 2))
         self.document = MdUtils(file_name=entity_name, title='Register Bank: %s' % entity_name)
-        self.version = datetime.now().strftime("%Y%m%d%H%m")
+        self.version = datetime.now().strftime("%Y%m%d_%H%m")
 
         self.useRecords = useRecords
         if self.useRecords:
@@ -605,6 +621,8 @@ class RegisterBank(vhdl.BasicVHDL):
             register = self.reg[index]
             self.document.new_header(2, "Register %d: %s" % (index, register.name))
             self.document.new_line("Address: BASE + 0x%x" % index)
+            if (register.description):
+                self.document.new_line("Description: %s" % register.description)
             self.document.new_line()
             list_of_strings = ["Bit", "Field", "Type", "Reset", "Description"]
             numOfRows = 1
@@ -618,7 +636,8 @@ class RegisterBank(vhdl.BasicVHDL):
                     field = register[bit].radix
                     type = register[bit].regType
                     # init = register[bit].init
-                    list_of_strings.extend([range, field, type, "", ""])
+                    description = register[bit].description
+                    list_of_strings.extend([range, field, type, "", description])
             self.document.new_table(columns=5, rows=numOfRows, text=list_of_strings, text_align='center')
         self.document.new_line()
         self.document.new_line("hdltools available at https://github.com/rftafas/hdltools.")
@@ -665,7 +684,10 @@ if __name__ == '__main__':
     # this is an example for a read/write generic register with external clear. It is possible
     # to choose an init value for any field
     myregbank.add(2, "myReadWrite2")
+    myregbank.reg[2].addDescription("To improve the documentation you can add a description to any \
+                                       register or register field using the * addDescription() * method.")
     myregbank.reg[2].add("myReadWrite2", "ReadWrite", 0, 32, "x\"00000023\"")
+    myregbank.reg[2][0].addDescription("Example of ReadWrite register.")
     myregbank.reg[2].externalClear = True
     # this is an example of a write to clear register
     myregbank.add(3, "MyWriteToClear")
