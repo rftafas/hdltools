@@ -344,7 +344,7 @@ class RegisterBank(vhdl.BasicVHDL):
 
         self.useRecords = useRecords
         if self.useRecords:
-            self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
+            self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg", self.version)
             self.pkg.addRecord("reg_i")
             self.pkg.addRecord("reg_o")
             self.pkg.library.add("IEEE")
@@ -391,6 +391,7 @@ class RegisterBank(vhdl.BasicVHDL):
 
         # Architecture
         # Constant
+        self.architecture.constant.add("register_bank_version_c", "String", "\"%s\"" % self.version)
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
@@ -425,6 +426,10 @@ class RegisterBank(vhdl.BasicVHDL):
 
         self.architecture.signal.add("regread_en", "std_logic")
         self.architecture.signal.add("regwrite_en", "std_logic")
+
+        if self.useRecords:
+            self.architecture.bodyCodeHeader.add(
+                "assert register_bank_version_c = package_version_c report \"Package and Register Bank version mismatch\" severity warning;")
 
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)

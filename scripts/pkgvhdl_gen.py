@@ -111,10 +111,12 @@ class PackageBodyObj:
 
 
 class PkgVHDL:
-    def __init__(self, name):
+    def __init__(self, name, version=None):
         self.library = vhdl.LibraryList()
         self.declaration = PackageDeclarationObj(name)
         self.body = PackageBodyObj(name)
+        if version is not None:
+            self.declaration.constant.add("package_version_c", "String", "\"%s\"" % version)
 
     def addRecord(self, name):
         self.declaration.record[name] = vhdl.RecordList(name)

@@ -2,8 +2,9 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-package myregbank_pkg is
+package MyRegBank_pkg is
   -- constants  (
+  constant package_version_c                        : string                := "20201225_2312";
   constant golden_offset_c                          : unsigned(31 downto 0) := to_unsigned(0, 32);
   constant golden_golden_i_offset_c                 : natural               := 0;
   constant golden_golden_i_width_c                  : natural               := 32;
@@ -67,7 +68,7 @@ package myregbank_pkg is
     set_MyWriteToClear_MyWriteToClear_i  => (others => '0'),
     set_MixedRegister_Write2ClearBit_i   => '0',
     clear_MixedRegister_Write2ClearBit_i => '0',
-    MixedRegister_ReadOnlyBit_i          => '0',
+    MixedRegister_ReadOnlyBit_i          => '1',
     set_MixedRegister_DivByte1_i         => (others => '0'),
     MixedRegister_DivByte3_i             => (others => '0'),
     ReadAWriteB_ReadAWriteB_i            => (others => '0')
@@ -75,7 +76,7 @@ package myregbank_pkg is
 
   constant reg_o_init_c : reg_o_t := (
     myReadWrite1_myReadWrite1_o => (others => '0'),
-    myReadWrite2_myReadWrite2_o => (others => '0'),
+    myReadWrite2_myReadWrite2_o => x"00000023",
     SlicedReg_pulse1_o          => (others => '0'),
     SlicedReg_pulse2_o          => (others => '0'),
     MixedRegister_PulseBit_o    => '0',
@@ -83,11 +84,17 @@ package myregbank_pkg is
     ReadAWriteB_ReadAWriteB_o   => (others => '0')
     );
 
-end myregbank_pkg;
+end MyRegBank_pkg;
 
-package body myregbank_pkg is
+package body MyRegBank_pkg is
 
 
+  -- Functions  (
+  -- functions_declaration_tag
+  --);
+  -- Procedures  (
+  -- procedures_declaration_tag
+  --);
 
 end package body;
 

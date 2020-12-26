@@ -4,9 +4,9 @@ use IEEE.numeric_std.all;
 library expert;
 use expert.std_logic_expert.all;
 library work;
-use work.myregbank_pkg.all;
+use work.MyRegBank_pkg.all;
 
-entity myregbank is
+entity MyRegBank is
   generic (
     C_S_AXI_ADDR_WIDTH : integer := 3;
     C_S_AXI_DATA_WIDTH : integer := 32
@@ -36,14 +36,15 @@ entity myregbank is
     reg_i         : in  reg_i_t;
     reg_o         : out reg_o_t := reg_o_init_c
     );
-end myregbank;
+end MyRegBank;
 
-architecture rtl of myregbank is
+architecture rtl of MyRegBank is
 
 
-  constant C_S_AXI_ADDR_BYTE : integer := (C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH mod 8);
-  constant C_S_AXI_ADDR_LSB  : integer := size_of(C_S_AXI_ADDR_BYTE);
-  constant REG_NUM           : integer := 2**C_S_AXI_ADDR_BYTE;
+  constant register_bank_version_c : string  := "20201225_2312";
+  constant C_S_AXI_ADDR_BYTE       : integer := (C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH mod 8);
+  constant C_S_AXI_ADDR_LSB        : integer := size_of(C_S_AXI_ADDR_BYTE);
+  constant REG_NUM                 : integer := 2**C_S_AXI_ADDR_BYTE;
 
   type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
@@ -74,6 +75,7 @@ architecture rtl of myregbank is
 
 begin
 
+  assert register_bank_version_c = package_version_c report "Package and Register Bank version mismatch" severity warning;
 
   ------------------------------------------------------------------------------------------------
   -- I/O Connections assignments
