@@ -15,9 +15,11 @@
 #################################################################################
 import sys
 import os
+from datetime import datetime
 import vhdl_gen as vhdl
 import pkgvhdl_gen as pkgvhdl
 import math
+from mdutils.mdutils import MdUtils
 
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 
@@ -321,6 +323,8 @@ class RegisterBank(vhdl.BasicVHDL):
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(registerNumber, 2))
+        self.document = MdUtils(file_name=entity_name, title='Register Bank: %s' % entity_name)
+        self.version = datetime.now().strftime("%Y%m%d%H%m")
 
         self.useRecords = useRecords
         if self.useRecords:
@@ -588,6 +592,39 @@ class RegisterBank(vhdl.BasicVHDL):
         hdl_code = vhdl.BasicVHDL.code(self)
         return hdl_code
 
+    def write_document(self):
+        self.document.new_header(1, "Details")
+        self.document.new_line("Data Width: %d" % self.datasize)
+        self.document.new_line("Number of registers: %d" % len(self.reg))
+        self.document.new_line("Version: v%s" % self.version)
+        self.document.new_line("Register Bank auto-generated using the hdltools/regbank_gen.py")
+        self.document.new_line()
+        self.document.new_header(1, "List of Registers")
+        self.document.new_line()
+        for index in self.reg:
+            register = self.reg[index]
+            self.document.new_header(2, "Register %d: %s" % (index, register.name))
+            self.document.new_line("Address: BASE + 0x%x" % index)
+            self.document.new_line()
+            list_of_strings = ["Bit", "Field", "Type", "Reset", "Description"]
+            numOfRows = 1
+            for bit in register:
+                if isinstance(register[bit], RegisterBit):
+                    numOfRows = numOfRows + 1
+                    if register[bit].size > 1:
+                        range = "%d-%d" % (bit+register[bit].size-1, bit)
+                    else:
+                        range = "%d" % (bit)
+                    field = register[bit].radix
+                    type = register[bit].regType
+                    # init = register[bit].init
+                    list_of_strings.extend([range, field, type, "", ""])
+            self.document.new_table(columns=5, rows=numOfRows, text=list_of_strings, text_align='center')
+        self.document.new_line()
+        self.document.new_line("hdltools available at https://github.com/rftafas/hdltools.")
+
+        self.document.create_md_file()
+
     def write_file(self):
         if (not os.path.exists("output")):
             os.makedirs("output")
@@ -614,7 +651,7 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank", "rtl", 32, 8)
+    myregbank = RegisterBank("MyRegBank", "rtl", 32, 8)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
@@ -660,5 +697,6 @@ if __name__ == '__main__':
     print(myregbank.code())
 
     myregbank.write_file()
+    myregbank.write_document()
     print("-------------------------------------------------------------")
     print("The example will be stored at ./output/myregbank.vhd")
