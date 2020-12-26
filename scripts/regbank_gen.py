@@ -635,9 +635,9 @@ class RegisterBank(vhdl.BasicVHDL):
                         range = "%d" % (bit)
                     field = register[bit].radix
                     type = register[bit].regType
-                    # init = register[bit].init
+                    init = register[bit].init
                     description = register[bit].description
-                    list_of_strings.extend([range, field, type, "", description])
+                    list_of_strings.extend([range, field, type, init, description])
             self.document.new_table(columns=5, rows=numOfRows, text=list_of_strings, text_align='center')
         self.document.new_line()
         self.document.new_line("hdltools available at https://github.com/rftafas/hdltools.")
