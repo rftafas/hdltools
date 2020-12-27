@@ -646,8 +646,53 @@ class RegisterBank(vhdl.BasicVHDL):
             self.document.new_table(columns=5, rows=numOfRows, text=list_of_strings, text_align='center')
         self.document.new_line()
         self.document.new_line("hdltools available at https://github.com/rftafas/hdltools.")
-
         self.document.create_md_file()
+
+    def write_header(self):
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+
+        header_code = ""
+        header_code = header_code + "#ifndef %s_H\n\r" % (self.entity.name.upper())
+        header_code = header_code + "#define %s_H\n\r" % (self.entity.name.upper())
+
+        header_code = header_code + "\n\r"
+        header_code = header_code + "/*This auto-generated header file was created using hdltools. File version:*/\n\r"
+        header_code = header_code + "#define %s_VERSION \"%s\"\n\r" % (self.entity.name.upper(), self.version)
+        header_code = header_code + "\n\r"
+
+        for index in self.reg:
+            register = self.reg[index]
+            header_code = header_code + "/*Register %s address */\n\r" % register.name
+            header_code = header_code + "#define %s_OFFSET 0x%x\n\r" % (register.name.upper(), index)
+            for bit in register:
+                if isinstance(register[bit], RegisterBit):
+                    header_code = header_code + "/*Register %s field %s */\n\r" % (register.name, register[bit].radix)
+                    fieldName = register.name.upper() + "_" + register[bit].radix.upper()
+                    header_code = header_code + "#define %s_FIELD_OFFSET %d\n\r" % (fieldName, bit)
+                    header_code = header_code + "#define %s_FIELD_WIDTH %d\n\r" % (fieldName, register[bit].size)
+                    # compute field mask
+                    mask = 0
+                    for i in range(bit, bit + register[bit].size):
+                        mask = mask + 2**i
+                    header_code = header_code + "#define %s_FIELD_MASK %s\n\r" % (fieldName, hex(mask))
+                    # Field default value
+                    if register[bit].init == "(others => '0')" or register[bit].init == "'0'":
+                        header_code = header_code + "#define %s_RESET %s\n\r" % (fieldName, "0x0")
+                    else:
+                        header_code = header_code + "#define %s_RESET 0%s\n\r" % (fieldName, register[bit].init.replace("\"", ""))
+            header_code = header_code + "\n\r"
+
+        header_code = header_code + "\n\r"
+
+        output_file_name = "output/"+self.entity.name+".h"
+        # to do: check if file exists. If so, emit a warning and
+        # check if must clear it.
+        output_file = open(output_file_name, "w+")
+        for line in header_code:
+            output_file.write(line)
+
+        output_file.close()
 
     def write_file(self):
         if (not os.path.exists("output")):
@@ -725,5 +770,6 @@ if __name__ == '__main__':
 
     myregbank.write_file()
     myregbank.write_document()
+    myregbank.write_header()
     print("-------------------------------------------------------------")
     print("The example will be stored at ./output/myregbank.vhd")
