@@ -47,7 +47,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def DictCode(DictInput):
+def DictCode(DictInput, indent_level = 0):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -66,10 +66,13 @@ class PackageObj:
             self.operator = "all"
 
     def code(self, libname="work"):
+        hdl_code = ""
         indent_tmp = 1
         if (libname == "work"):
             indent_tmp = 0
         hdl_code = hdl_code + indent(indent_tmp) + ("use %s.%s.%s;\r\n" % (libname, self.name, self.operator))
+        if (libname == "work"):
+            hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 
@@ -80,8 +83,10 @@ class PackageList(dict):
             self[name].operator = args[0]
 
     def code(self, libname="work"):
-        for eachPkg in self.package:
-            hdl_code = hdl_code + self.package[eachPkg].code(self.name,libname)
+        hdl_code = ""
+        for eachPkg in self:
+            hdl_code = hdl_code + self[eachPkg].code(libname)
+        return hdl_code
 
 class LibraryObj:
     def __init__(self, name, *args):
@@ -100,7 +105,7 @@ class LibraryList(dict):
         self[name] = LibraryObj(name)
 
     def code(self, indent_level=0):
-        return dictCode(self) + "\r\n"
+        return DictCode(self) + "\r\n"
 
 
 # ------------------- Generic -----------------------
@@ -148,6 +153,10 @@ class PortObj:
 class PortList(dict):
     def add(self, name, direction, type, init=None):
         self[name] = PortObj(name, direction, type, init)
+
+    def append(self,port_obj):
+        if isinstance(port_obj,PortObj):
+            self[port_obj.name] = port_obj
 
     def code(self, indent_level=0):
         return VHDLenum(self)
@@ -223,7 +232,7 @@ class CustomTypeList(dict):
             self[name] = IncompleteTypeObj(name)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 # ------------------- Constant -----------------------
 
@@ -243,7 +252,7 @@ class ConstantList(dict):
         self[name] = ConstantObj(name, type, init)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 
 # ------------------- Signals -----------------------
@@ -270,7 +279,7 @@ class SignalList(dict):
         self[name] = SignalObj(name, type, *args)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 # ------------------- Records -----------------------
 # note: this will be deprecated towards more generic custom type creation.
@@ -303,7 +312,7 @@ class RecordList(dict):
 
     def code(self, indent_level=0):
         hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
-        hdl_code = hdl_code + dictCode(self, indent_level)
+        hdl_code = hdl_code + DictCode(self, indent_level)
         hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
         hdl_code = hdl_code + "\r\n"
         return hdl_code
@@ -333,7 +342,7 @@ class VariableList(dict):
         self[name] = VariableObj(name, type, *args)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 
 class GenericCodeBlock:
@@ -408,56 +417,39 @@ class FunctionObj:
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
         return hdl_code
 
-class functionObj:
+class ProcedureObj:
     def __init__(self, name):
         self.name = name
-        # todo: generic types here.
-        self.generic = genericList()
-        # function parameters in VHDL follow the same fashion as
-        # generics on a portmap. name : type := init value;
-        self.parameter = genericList()
-        self.variable = variableList()
-        self.functionBody = genericCodeBlock(1)
-        self.returnType = "return_type_here"
-        self.genericInstance = instanceObjList()
 
     def new(self, newName):
-        hdl_code = "function %s is new %s\r\n" % (newName, self.name)
-        hdl_code = hdl_code + indent(1)+"generic (\r\n"
-        # todo: generic types here.
-        if not self.genericInstance:
-            for item in genericList:
-                self.genericInstance.add(item,"<new value>")
-        hdl_code = hdl_code + self.genericInstance.code()
-        hdl_code = hdl_code + indent(1)+");\r\n"
+        hdl_code = "Not implemented." % (newName, self.name)
 
     def declaration(self):
-        hdl_code = self._code()
-        hdl_code = hdl_code + indent(0) + ("return %s;\r\n" % self.returnType)
-        return hdl_code
-
-    def _code(self):
-        hdl_code = indent(0) + ("function %s" % self.name)
-        if (self.generic):
-            hdl_code = hdl_code + ("\r\n")
-            hdl_code = hdl_code + indent(1) + ("generic (\r\n")
-            # todo: generic types here.
-            hdl_code = hdl_code + self.generic.code()
-            hdl_code = hdl_code + indent(1) + (")\r\n")
-            hdl_code = hdl_code + indent(1) + ("parameter")
-        if (self.parameter):
-            hdl_code = hdl_code + indent(1) + (" (\r\n")
-            hdl_code = hdl_code + self.parameter.code()
-            hdl_code = hdl_code + indent(1) + (")\r\n")
-        return hdl_code
+        hdl_code = "--Procedure Declaration not Implemented."
 
     def code(self):
-        hdl_code = self._code()
-        hdl_code = hdl_code + indent(0) + ("return %s is\r\n")
-        hdl_code = hdl_code + self.variable.code()
-        hdl_code = hdl_code + indent(0) + ("begin\r\n")
-        hdl_code = hdl_code + self.functionBody.code()
-        hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
+        hdl_code = "--Procedure Code not Implemented."
+        return hdl_code
+
+class SubProgramList(dict):
+    def add(self, name, type):
+        if type == "Function":
+            self[name] = FunctionObj(name)
+        elif type == "Procedure":
+            self[name] = ProcedureObj(name)
+        else:
+            print("Error. Select \"Function\" or \"Procedure\". Keep the quotes.")
+
+    def declaration(self, indent_level=0):
+        hdl_code = ""
+        for j in self:
+            hdl_code = hdl_code + self[j].declaration()
+        return hdl_code
+
+    def code(self, indent_level=0):
+        hdl_code = ""
+        for j in self:
+            hdl_code = hdl_code + self[j].code()
         return hdl_code
 
 # ------------------- Component -----------------------
@@ -497,8 +489,8 @@ class ComponentList(dict):
 
     def code(self, indent_level=0):
         hdl_code = ""
-        for j in self.list:
-            hdl_code = hdl_code + self.list[j].code()
+        for j in self:
+            hdl_code = hdl_code + self[j].code()
         return hdl_code
 
 # ------------------- Instance -----------------------

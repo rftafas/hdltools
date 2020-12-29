@@ -27,11 +27,10 @@ class PackageDeclarationObj:
         self.component = vhdl.ComponentList()
         self.record = vhdl.RecordList()
         self.signal = vhdl.SignalList()
-        self.functions = ""
-        self.procedures = ""
-        self.customTypes = vhdl.customTypeList()
-        self.declarationHeader = vhdl.genericCodeBlock(1)
-        self.declarationFooter = vhdl.genericCodeBlock(1)
+        self.subPrograms = vhdl.SubProgramList()
+        self.customTypes = vhdl.CustomTypeList()
+        self.declarationHeader = vhdl.GenericCodeBlock(1)
+        self.declarationFooter = vhdl.GenericCodeBlock(1)
 
     def code(self, indent_level=0):
         hdl_code = vhdl.indent(indent_level) + ("package %s is\r\n" % self.name)
@@ -48,8 +47,7 @@ class PackageDeclarationObj:
         hdl_code = hdl_code + self.constant.code()
         hdl_code = hdl_code + self.customTypes.code()
         hdl_code = hdl_code + self.signal.code()
-        hdl_code = hdl_code + self.functions.declaration()
-        #hdl_code = hdl_code + self.procedures.declaration()
+        hdl_code = hdl_code + self.subPrograms.declaration()
         hdl_code = hdl_code + self.component.code()
         hdl_code = hdl_code + self.declarationFooter.code()
         hdl_code = hdl_code + vhdl.indent(0) + ("end %s;\r\n" % self.name)
@@ -60,10 +58,11 @@ class PackageDeclarationObj:
 class PackageBodyObj:
     def __init__(self, name):
         self.name = name
-        self.functions = ""
+        self.subPrograms = ""
         self.procedures = ""
         self.bodyCodeHeader = vhdl.GenericCodeBlock(1)
         self.bodyCodeFooter = vhdl.GenericCodeBlock(1)
+        self.subPrograms = ""
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -74,22 +73,12 @@ class PackageBodyObj:
             hdl_code = hdl_code + self.bodyCodeHeader.code(indent_level)
             hdl_code = hdl_code + "\r\n"
         # Functions
-        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Functions  (\r\n")
-        if (self.functions):
-            hdl_code = hdl_code + self.functions.code()
+        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Functions & Procedures\r\n")
+        if (self.subPrograms):
+            hdl_code = hdl_code + self.subPrograms.code()
             hdl_code = hdl_code + "\r\n"
         else:
-            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- functions_declaration_tag\r\n")
-            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
-
-        # Procedures
-        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Procedures  (\r\n")
-        if (self.procedures):
-            #hdl_code = hdl_code + self.procedures.code()
-            hdl_code = hdl_code + "\r\n"
-        else:
-            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- procedures_declaration_tag\r\n")
-            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("-- subprograms_declaration_tag\r\n")
 
         # Footer
         if (self.bodyCodeHeader):
@@ -128,6 +117,7 @@ class PkgVHDL:
         return True
 
     def code(self):
+        self.body.subPrograms = self.declaration.subPrograms
         hdl_code = ""
         hdl_code = hdl_code + self.library.code()
         hdl_code = hdl_code + self.declaration.code()
