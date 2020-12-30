@@ -466,7 +466,7 @@ class Architecture:
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(1) + ("--architecture_body_tag.\r\n")
         hdl_code = hdl_code + "\r\n"
-        if (self.bodyCodeHeader):
+        if (self.bodyCodeFooter):
             hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)

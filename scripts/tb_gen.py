@@ -147,7 +147,6 @@ TemplateHeaderCode = """
         axilite_if <= init_axilite_if_signals(32, 32);
         uvvm_util.methods_pkg.log("axilite_if reset.");
         wait for 5*axi_aclk_period_c;
-
 """
 
 TemplateFooterCode = """
@@ -159,19 +158,19 @@ TemplateFooterCode = """
   end process;
 
   clock_generator(S_AXI_ACLK, axi_aclk_period_c);
-
 """
 
 
 class TestBench(vhdl.BasicVHDL):
-    def __init__(self, entity_name, datasize, registerNumber, useRecords=True):
+    def __init__(self, entity_name, regBank):
         vhdl.BasicVHDL.__init__(self, entity_name + "_tb", "bench")
         self.generate_code = False
-        self.reg = rb.RegisterList()
-        self.datasize = datasize
-        self.addrsize = math.ceil(math.log(registerNumber, 2))
-        self.version = ""
-        self.useRecords = useRecords
+        self.regBank = regBank
+        self.reg = regBank.reg
+        self.datasize = regBank.datasize
+        self.addrsize = regBank.addrsize
+        self.version = regBank.version
+        self.useRecords = regBank.useRecords
 
         # Libraries
         self.library.add("IEEE")
@@ -231,18 +230,53 @@ class TestBench(vhdl.BasicVHDL):
         self.architecture.signal.add("S_AXI_ACLK", "std_logic")
         self.architecture.signal.add("S_AXI_ARESETN", "std_logic")
         self.architecture.signal.add("axilite_if", "ST_AXILite_32")
-        if self.useRecords:
-            self.architecture.signal.add("reg_i", "reg_i_t", "reg_i_init_c")
-            self.architecture.signal.add("reg_o", "reg_o_t", )
 
-        for lines in TemplateHeaderCode.splitlines():
-            self.architecture.bodyCodeHeader.add(lines)
+    def instantiate_regbank(self, indent_level=2):
+        hdl_code = ""
+        hdl_code += "%s_i : entity src_lib.%s\n\r" % (self.regBank.entity.name, self.regBank.entity.name)
+        if (self.regBank.entity.generic):
+            hdl_code = hdl_code + vhdl.indent(indent_level) + ("generic map (\r\n")
+            i = 0
+            list = self.regBank.entity.generic
+            for j in list:
+                i = i+1
+                if (i == len(list)):
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s\n\r" % (list[j].name, list[j].name)
+                    hdl_code += vhdl.indent(indent_level + 1) + ");\n\r"
+                else:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s,\n\r" % (list[j].name, list[j].name)
+        if (self.regBank.entity.port):
+            hdl_code = hdl_code + vhdl.indent(indent_level) + ("port map (\r\n")
+            i = 0
+            list = self.regBank.entity.port
+            for j in list:
+                i = i+1
+                if(list[j].name == "S_AXI_ACLK" or list[j].name == "S_AXI_ARESETN"):
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name, list[j].name)
+                elif "S_AXI_AW" in list[j].name:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
+                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_address_channel."))
+                elif "S_AXI_W" in list[j].name:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
+                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_data_channel."))
+                elif "S_AXI_B" in list[j].name:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
+                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_reponse_channel."))
+                elif "S_AXI_AR" in list[j].name:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
+                                                                              list[j].name.replace("S_AXI_", "axilite_if.read_address_channel."))
+                elif "S_AXI_R" in list[j].name:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
+                                                                              list[j].name.replace("S_AXI_", "axilite_if.read_data_channel."))
+                else:
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name, list[j].name)
+                    self.architecture.signal.add(list[j].name, list[j].type)
 
-        for lines in TemplateFooterCode.splitlines():
-            self.architecture.bodyCodeFooter.add(lines)
-
-    def instantiate_regbank(self):
-        pass
+                if (i == len(list)):
+                    hdl_code += "\n\r" + vhdl.indent(indent_level + 1) + ");\n\r"
+                else:
+                    hdl_code += ",\n\r"
+        self.architecture.bodyCodeHeader.add(hdl_code)
 
     def build_tests(self, indent_level=3):
         case_code = ""
@@ -287,7 +321,7 @@ class TestBench(vhdl.BasicVHDL):
         hdl_code += vhdl.indent(indent_level + 1) + "wait_num_rising_edge(S_AXI_ACLK, 1);\n\r"
         hdl_code += vhdl.indent(indent_level + 1) + "test_case := random(0, %d);\n\r" % (i - 1)
         hdl_code += vhdl.indent(indent_level + 1) + "uvvm_util.methods_pkg.log(\"Test case number: \" & to_string(test_case));\n\r"
-        hdl_code += vhdl.indent(indent_level + 1) + "case test_case is"
+        hdl_code += vhdl.indent(indent_level + 1) + "case test_case is\n\r"
         hdl_code += case_code
         hdl_code += vhdl.indent(indent_level) + "when others:\n\r"
         hdl_code += vhdl.indent(indent_level) + "end case;\n\r"
@@ -296,9 +330,18 @@ class TestBench(vhdl.BasicVHDL):
         self.architecture.bodyCodeHeader.add(hdl_code)
 
     def code(self):
-        if self.generate_code == False:
+        if self.generate_code is False:
+            self.instantiate_regbank()
+            for lines in TemplateHeaderCode.splitlines():
+                self.architecture.bodyCodeHeader.add(lines)
+
             self.build_tests()
+
+            for lines in TemplateFooterCode.splitlines():
+                self.architecture.bodyCodeFooter.add(lines)
+
             self.generate_code = True
+
         hdl_code = vhdl.BasicVHDL.code(self)
         return hdl_code
 

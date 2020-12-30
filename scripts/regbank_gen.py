@@ -778,6 +778,7 @@ if __name__ == '__main__':
     myregbank.reg[6].add("ReadAWriteB", "SplitReadWrite", 0, 32)
 
     tb = tbvhdl.TestBench(myregbank.entity.name, dataSize, registerNumber)
+    tb = tbvhdl.TestBench(myregbank.entity.name, myregbank)
     print(myregbank.code())
     print(tb.code())
 
