@@ -1,6 +1,5 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
-# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -13,6 +12,10 @@
 # OR CONDITIONS OF ANY KIND, either express or implied. See the License for
 # the specific language governing permissions and limitations under the License.
 #################################################################################
+## Contributor list:
+## 2020 - Ricardo F Tafas Jr - https://github.com/rftafas
+## 2020 - T.P. Correa - https://github.com/tpcorrea
+
 import sys
 import os
 
@@ -20,6 +23,38 @@ import os
 # process
 # Procedures
 # Block
+
+
+# NOTE:
+# The license below may be changed to be compliant to those using these
+# generators. The generator itself is licensed under Apache as stated above.
+license_text = """---------------------------------------------------------------------------------
+-- This is free and unencumbered software released into the public domain.
+--
+-- Anyone is free to copy, modify, publish, use, compile, sell, or
+-- distribute this software, either in source code form or as a compiled
+-- binary, for any purpose, commercial or non-commercial, and by any
+-- means.
+--
+-- In jurisdictions that recognize copyright laws, the author or authors
+-- of this software dedicate any and all copyright interest in the
+-- software to the public domain. We make this dedication for the benefit
+-- of the public at large and to the detriment of our heirs and
+-- successors. We intend this dedication to be an overt act of
+-- relinquishment in perpetuity of all present and future rights to this
+-- software under copyright law.
+--
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+-- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+-- IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+-- OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+-- ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+-- OTHER DEALINGS IN THE SOFTWARE.
+--
+-- For more information, please refer to <http://unlicense.org/>
+---------------------------------------------------------------------------------
+"""
 
 try:
     x = tabsize
@@ -52,6 +87,28 @@ def DictCode(DictInput, indent_level = 0):
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
     return hdl_code
+
+
+# ------------------- GenericCodeBlock -----------------------
+
+
+class GenericCodeBlock:
+    def __init__(self, indent):
+        self.list = []
+        self.indent = indent
+
+    def __call__(self):
+        pass;
+
+    def add(self, text):
+        self.list.append(text)
+
+    def code(self):
+        hdl_code = ""
+        for j in self.list:
+            hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
+        return hdl_code
+
 
 # ------------------- Library -----------------------
 
@@ -293,42 +350,6 @@ class SignalList(dict):
     def code(self, indent_level=0):
         return DictCode(self)
 
-# ------------------- Records -----------------------
-# note: this will be deprecated towards more generic custom type creation.
-
-class RecordObj:
-    def __init__(self, name, type, init=None):
-        self.name = name
-        self.type = type
-        if init is None:
-            if self.type == "std_logic":
-                self.init = "'0'"
-            else:
-                self.init = "(others => '0')"
-        else:
-            self.init = init
-
-    def code(self, indent_level=0):
-        return indent(indent_level + 1) + ("%s : %s;\r\n" % (self.name, self.type))
-
-    def code_init(self, indent_level=0):
-        return indent(indent_level + 1) + ("%s => %s,\r\n" % (self.name, self.init))
-
-
-class RecordList(dict):
-    def __init__(self, name="empty"):
-        self.name = name
-
-    def add(self, name, type, init=None):
-        self[name] = RecordObj(name, type, init)
-
-    def code(self, indent_level=0):
-        hdl_code = indent(indent_level) + ("type %s is record\r\n" % (self.name + "_t"))
-        hdl_code = hdl_code + DictCode(self, indent_level)
-        hdl_code = hdl_code + indent(indent_level) + ("end record %s;\r\n" % (self.name + "_t"))
-        hdl_code = hdl_code + "\r\n"
-        return hdl_code
-
 
 # ------------------- Variables -----------------------
 
@@ -356,20 +377,6 @@ class VariableList(dict):
     def code(self, indent_level=0):
         return DictCode(self)
 
-
-class GenericCodeBlock:
-    def __init__(self, indent):
-        self.list = []
-        self.indent = indent
-
-    def add(self, text):
-        self.list.append(text)
-
-    def code(self, indent_level=0):
-        hdl_code = ""
-        for j in self.list:
-            hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
-        return hdl_code
 
 # ------------------- Functions & Procedures -----------------------
 
@@ -499,11 +506,12 @@ class ComponentList(dict):
     def add(self, name):
         self[name] = ComponentObj(name)
 
+    def append(self, component_obj):
+        if isinstance(component_obj,ComponentObj):
+            self[component_obj.name] = component_obj
+
     def code(self, indent_level=0):
-        hdl_code = ""
-        for j in self:
-            hdl_code = hdl_code + self[j].code()
-        return hdl_code
+        return DictCode(self)
 
 # ------------------- Instance -----------------------
 
@@ -599,8 +607,7 @@ class Architecture:
         self.signal = SignalList()
         self.constant = ConstantList()
         self.component = ComponentList()
-        self.functions = ""
-        self.procedures = ""
+        self.subPrograms = SubProgramList()
         self.customTypes = CustomTypeList()
         self.declarationHeader = GenericCodeBlock(1)
         self.declarationFooter = GenericCodeBlock(1)
@@ -645,13 +652,22 @@ class Architecture:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
+fileHeader = GenericCodeBlock(0)
+fileHeader.add(license_text)
 
 class BasicVHDL:
     def __init__(self, entity_name, architecture_name):
+        self.fileHeader = fileHeader
         self.library = LibraryList()
         self.work = PackageList()
         self.entity = Entity(entity_name)
         self.architecture = Architecture(architecture_name, entity_name)
+
+    def object(self):
+        self.component = ComponentObj(self.entity.name)
+        self.component.generic = self.entity.generic
+        self.component.port = self.entity.port
+        return self.component
 
     def instance(self, instance_name, generic_list, port_list):
         self.tmpinst = ComponentInstanceObj()
@@ -683,6 +699,7 @@ class BasicVHDL:
 
     def code(self, indent_level=0):
         hdl_code = ""
+        hdl_code = hdl_code + self.fileHeader.code()
         hdl_code = hdl_code + self.library.code()
         hdl_code = hdl_code + self.work.code()
         hdl_code = hdl_code + self.entity.code()
