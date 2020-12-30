@@ -18,6 +18,7 @@ import os
 from datetime import datetime
 import vhdl_gen as vhdl
 import pkgvhdl_gen as pkgvhdl
+import tb_gen as tbvhdl
 import math
 from mdutils.mdutils import MdUtils
 
@@ -728,7 +729,9 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("MyRegBank", "rtl", 32, 8)
+    dataSize = 32
+    registerNumber = 8
+    myregbank = RegisterBank("MyRegBank", "rtl", dataSize, registerNumber)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
@@ -774,10 +777,13 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("ReadAWriteB", "SplitReadWrite", 0, 32)
 
+    tb = tbvhdl.TestBench(myregbank.entity.name, dataSize, registerNumber)
     print(myregbank.code())
+    print(tb.code())
 
     myregbank.write_file()
     myregbank.write_document()
     myregbank.write_header()
+    tb.write_file()
     print("-------------------------------------------------------------")
     print("The example will be stored at ./output/myregbank.vhd")

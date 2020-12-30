@@ -75,14 +75,28 @@ class PackageList(dict):
             self[name].operator = args[0]
 
 
+class ContextObj:
+    def __init__(self, name):
+        self.source = "File Location Unknown."
+        self.name = name
+
+
+class ContextList(dict):
+    def add(self, name):
+        self[name] = ContextObj(name)
+
+
 class LibraryObj:
     def __init__(self, name, *args):
         self.name = name
         self.package = PackageList()
+        self.context = ContextList()
 
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
+        for j in self.context:
+            hdl_code = hdl_code + indent(indent_level + 1) + ("context %s.%s;\r\n" % (self.name, self.context[j].name))
         for j in self.package:
             hdl_code = hdl_code + indent(indent_level + 1) + ("use %s.%s.%s;\r\n" % (self.name, j, self.package[j].operator))
         return hdl_code
@@ -98,18 +112,21 @@ class LibraryList(dict):
 
 # ------------------- Generic -----------------------
 class GenericObj:
-    def __init__(self, name, type, init_value):
+    def __init__(self, name, type, init):
         self.name = name
-        self.init_value = init_value
+        self.init = init
         self.type = type
 
     def code(self, indent_level=0):
-        hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
+        if self.init is None:
+            hdl_code = indent(indent_level + 2) + ("%s : %s;\r\n" % (self.name, self.type))
+        else:
+            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init))
         return hdl_code
 
 
 class GenericList(dict):
-    def add(self, name, type, init):
+    def add(self, name, type, init=None):
         self[name] = GenericObj(name, type, init)
 
     def code(self, indent_level=0):
