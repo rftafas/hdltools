@@ -262,10 +262,9 @@ class RegisterBit:
     def __init__(self, name, type, init):
         self.name = name
         self.externalClear = False
+        self.clearName = self.name+"_clear"
         self.vhdlType = "std_logic"
         self.size = 1
-        self.record = ""
-        self.inRecord = False
 
         if init is None:
             self.init = "'0'"
@@ -287,18 +286,12 @@ class RegisterBit:
         self.port = vhdl.PortList()
         self.port.add(self.vhdlName,self.direction,self.vhdlType)
         if self.externalClear:
-            self.port.add(self.name+"_clear_i", "in", self.vhdlType)
+            self.port.add(self.clearName+"_i", "in", "std_logic")
 
         if self.regType == "SplitReadWrite":
             self.inv_direction = InvertDirection(self.direction)
             self.inv_vhdlName = self.name + GetSuffix(self.inv_direction)
             self.port.add(self.inv_vhdlName,self.inv_direction,self.vhdlType)
-
-    def toRecord(self,record):
-        self.inRecord = True
-        self.record = record+GetSuffix(self.direction)
-        self.vhdlName = self.record+"."+self.name
-        self.updatePort()
 
 class RegisterSlice(RegisterBit):
     def __init__(self, name, type, size, init):
@@ -311,7 +304,6 @@ class RegisterSlice(RegisterBit):
         else:
             self.init = init
         self.updatePort()
-
 
 class RegisterWord(dict):
     def __init__(self, name, size, init=None):
@@ -338,11 +330,9 @@ class RegisterWord(dict):
         else:
             print("This reg is already occupied by %s" % self[start].name)
 
-
 class RegisterList(dict):
     def add(self, number, Register):
         self[number] = Register
-
 
 class RegisterBank(vhdl.BasicVHDL):
     def __init__(self, entity_name, architecture_name, datasize, RegisterNumber):
@@ -351,6 +341,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber, 2))
+        self.useRecords = False
 
         self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
         self.pkg.library.add("IEEE")
@@ -431,21 +422,50 @@ class RegisterBank(vhdl.BasicVHDL):
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)
 
-    def RecordPortAdd(self):
-        pass
-
-    def add(self, number, name):
-        self.reg.add(number, RegisterWord(name, self.datasize))
-
-    def RegisterPortAdd(self):
+    def SetPortAsRecord(self):
+        self.useRecords = True
+        out_record_name = self.entity.name+"_o_t"
+        in_record_name = self.entity.name+"_i_t"
+        self.pkg.packageDeclaration.customTypes.add(out_record_name, "Record")
+        self.pkg.packageDeclaration.customTypes.add(in_record_name, "Record")
         for index in self.reg:
             register = self.reg[index]
             for element in register:
                 try:
                     for j in register[element].port:
-                        self.entity.port.append(register[element].port[j])
+                        if register[element].externalClear:
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].clearName,register[element].vhdlType)
+                            self.reg[index][element].clearName = self.entity.name+"_i."+register[element].clearName
+                        if "SplitReadWrite" in register[element].regType:
+                            self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
+                            self.reg[index][element].inv_vhdlName = self.entity.name+"_o."+register[element].name
+                        elif "out" in register[element].direction:
+                            self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_o."+register[element].name
+                        else:
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
                 except:
                     pass
+
+    def add(self, number, name):
+        self.reg.add(number, RegisterWord(name, self.datasize))
+
+    def RegisterPortAdd(self):
+        if self.useRecords:
+            self.entity.port.add(self.entity.name+"_i","in",self.entity.name+"_i_t")
+            self.entity.port.add(self.entity.name+"_o","in",self.entity.name+"_o_t")
+        else:
+            for index in self.reg:
+                register = self.reg[index]
+                for element in register:
+                    try:
+                        for j in register[element].port:
+                            self.entity.port.append(register[element].port[j])
+                    except:
+                        pass
 
     def updatePort(self):
         for index in self.reg:
@@ -503,33 +523,20 @@ class RegisterBank(vhdl.BasicVHDL):
             register = self.reg[index]
             for bit in register:
                 if isinstance(register[bit], RegisterBit):
-                    clearname = register[bit].name+"_clear_i"
+                    clearname = register[bit].clearName
                     defaultvalue = "'1'"
                     elsevalue = "'0'"
                     vectorRange = str(bit)
                     if isinstance(register[bit], RegisterSlice):
                         vectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
-                        defaultvalue = "(others=>'1')"
+                        defaultvalue = "(%s=>'1')" % register[bit].vhdlRange
+                        elsevalue = "(%s=>'0')" % register[bit].vhdlRange
                     if "Write2Clear" in register[bit].regType:
                         elsevalue = "regwrite_s(%d)(%s)" % (index, vectorRange)
                     if register[bit].externalClear:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
                                                              (index, vectorRange, defaultvalue, clearname, elsevalue))
         self.architecture.bodyCodeFooter.add("")
-
-    def createRecordsFromRegisters(self):
-        for reg in self.reg:
-            # add constant with register offset
-            self.pkg.declaration.constant.add(self.reg[reg].name + "_offset_c", "unsigned(%d downto 0)"
-                                              % (self.datasize - 1), "to_unsigned(%d,%d)" % (reg, self.datasize))
-            if self.reg[reg].inRecord:
-                if not (self.pkg.declaration.customTypes[self.reg[reg].record]):
-                    self.pkg.declaration.customTypes.add(self.reg[reg].record)
-
-            if isinstance(register[bit], RegisterBit):
-                self.pkg.declaration.customTypes[self.reg[reg].record].add(self.reg[reg].name)
-            else:
-                self.pkg.declaration.customTypes[self.reg[reg].record].add(self.reg[reg].name+self.reg[reg].vhdlRange)
 
     def code(self):
         if (not self.generate_code):
@@ -540,9 +547,6 @@ class RegisterBank(vhdl.BasicVHDL):
             self.registerClearConnection()
             self.generate_code = True
         return vhdl.BasicVHDL.code(self)
-
-        hdl_code = vhdl.BasicVHDL.code(self)
-        return hdl_code
 
     def write_file(self):
         self.pkg.write_file()
@@ -596,8 +600,12 @@ if __name__ == '__main__':
     # Bit 0 is goint to be a pulsed register. Write one, it pulses output.
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("rAwB", "SplitReadWrite", 0, 32)
-    #print(myregbank.code())
 
+    myregbank.add(7, "reg2clear")
+    myregbank.reg[7].add("reg2clear", "ReadWrite", 0, 32)
+    myregbank.reg[7][0].externalClear = True
+    print(myregbank.code())
+    #myregbank.SetPortAsRecord()
     myregbank.write_file()
     print("-------------------------------------------------------------")
     print("The example will be stored at ./output/myregbank.vhd")
