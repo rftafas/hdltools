@@ -294,10 +294,10 @@ class TestBench(vhdl.BasicVHDL):
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_axi_side(%s, %s, %s);\n\r"
                     elif self.reg[reg][bit].regType == "ReadWrite":
                         case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
-                        case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_user_side(%s, %s, %s);\n\r"
+                        case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadWrite_user_side(%s, %s, %s);\n\r"
                         i = i + 1
                         case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
-                        case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_axi_side(%s, %s, %s);\n\r"
+                        case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadWrite_axi_side(%s, %s, %s);\n\r"
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
                         # case_code = case_code + vhdl.indent(indent_level + 2) + "when %d =>\n\r" % i
                         # case_code = case_code + vhdl.indent(indent_level + 3) + "test_ReadOnly_user_side(%s, %s, %s);\n\r"
