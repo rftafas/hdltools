@@ -221,10 +221,11 @@ class TestBench(vhdl.BasicVHDL):
         # Custom Type
 
         self.architecture.customTypes.add("subtype ST_AXILite_32 is t_axilite_if (")
-        self.architecture.customTypes.add("write_address_channel (awaddr(31 downto 0)),")
-        self.architecture.customTypes.add("write_data_channel (wdata(31 downto 0), wstrb(3 downto 0)),")
-        self.architecture.customTypes.add("read_address_channel (araddr(31 downto 0)),")
-        self.architecture.customTypes.add("read_data_channel (rdata(31 downto 0)));")
+        self.architecture.customTypes.add("write_address_channel (awaddr(%d downto 0))," % (self.datasize - 1))
+        self.architecture.customTypes.add("write_data_channel (wdata(%d downto 0), wstrb(%d downto 0))," %
+                                          (self.datasize - 1, int(self.datasize/8) - 1))
+        self.architecture.customTypes.add("read_address_channel (araddr(%d downto 0))," % (self.datasize - 1))
+        self.architecture.customTypes.add("read_data_channel (rdata(%d downto 0)));" % (self.datasize - 1))
 
         # Signals
         self.architecture.signal.add("S_AXI_ACLK", "std_logic")
@@ -242,7 +243,7 @@ class TestBench(vhdl.BasicVHDL):
                 i = i+1
                 if (i == len(list)):
                     hdl_code += vhdl.indent(indent_level + 1) + "%s => %s\n\r" % (list[j].name, list[j].name)
-                    hdl_code += vhdl.indent(indent_level + 1) + ");\n\r"
+                    hdl_code += vhdl.indent(indent_level + 1) + ")\n\r"
                 else:
                     hdl_code += vhdl.indent(indent_level + 1) + "%s => %s,\n\r" % (list[j].name, list[j].name)
         if (self.regBank.entity.port):
@@ -286,35 +287,35 @@ class TestBench(vhdl.BasicVHDL):
                 if self.reg[reg][bit] != ["empty"]:
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_user_side(%s, %s, %s);\n\r"
                         i = i + 1
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_axi_side(%s, %s, %s);\n\r"
                     elif self.reg[reg][bit].regType == "ReadWrite":
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_user_side(%s, %s, %s);\n\r"
                         i = i + 1
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_ReadOnly_axi_side(%s, %s, %s);\n\r"
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
-                        # case_code = case_code + vhdl.indent(indent_level + 2) + "when %d:\n\r" % i
+                        # case_code = case_code + vhdl.indent(indent_level + 2) + "when %d =>\n\r" % i
                         # case_code = case_code + vhdl.indent(indent_level + 3) + "test_ReadOnly_user_side(%s, %s, %s);\n\r"
                         # i = i + 1
-                        # case_code = case_code + "when %d:\n\r" % i
+                        # case_code = case_code + "when %d =>\n\r" % i
                         # case_code = case_code + "test_ReadOnly_axi_side(%s, %s, %s);\n\r"
                         pass
                     elif self.reg[reg][bit].regType == "Write2Clear":
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_Write2Clear_user_side(%s, %s, %s);\n\r"
                         i = i + 1
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_Write2Clear_axi_side(%s, %s, %s);\n\r"
                     elif self.reg[reg][bit].regType == "Write2Pulse":
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_Write2Pulse_user_side(%s, %s, %s);\n\r"
                         i = i + 1
-                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d:\n\r" % i
+                        case_code = case_code + vhdl.indent(indent_level + 3) + "when %d =>\n\r" % i
                         case_code = case_code + vhdl.indent(indent_level + 4) + "test_Write2Pulse_axi_side(%s, %s, %s);\n\r"
                     i = i + 1
         hdl_code = vhdl.indent(indent_level) + "for i in 0 to 100 loop\n\r"
@@ -323,7 +324,7 @@ class TestBench(vhdl.BasicVHDL):
         hdl_code += vhdl.indent(indent_level + 1) + "uvvm_util.methods_pkg.log(\"Test case number: \" & to_string(test_case));\n\r"
         hdl_code += vhdl.indent(indent_level + 1) + "case test_case is\n\r"
         hdl_code += case_code
-        hdl_code += vhdl.indent(indent_level) + "when others:\n\r"
+        hdl_code += vhdl.indent(indent_level) + "when others=>\n\r"
         hdl_code += vhdl.indent(indent_level) + "end case;\n\r"
         hdl_code += vhdl.indent(indent_level) + "wait for random(1 ns, 500 ns);"
         hdl_code += vhdl.indent(indent_level) + "end loop;"
