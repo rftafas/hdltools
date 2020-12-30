@@ -59,10 +59,8 @@ class PackageBodyObj:
     def __init__(self, name):
         self.name = name
         self.subPrograms = ""
-        self.procedures = ""
         self.bodyCodeHeader = vhdl.GenericCodeBlock(1)
         self.bodyCodeFooter = vhdl.GenericCodeBlock(1)
-        self.subPrograms = ""
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -93,12 +91,11 @@ class PkgVHDL:
     def __init__(self, name):
         self.name = name
         self.library = vhdl.LibraryList()
-        self.declaration = PackageDeclarationObj(name)
-        self.body = PackageBodyObj(name)
-        self.packageDeclaration = vhdl.PackageObj(name)
+        self.packageBody = PackageBodyObj(name)
+        self.packageDeclaration = PackageDeclarationObj(name)
 
-    def object(self):
-        return self.packageDeclaration;
+    # def object(self):
+    #     return self.packageDeclaration;
 
     def write_file(self):
         hdl_code = self.code()
@@ -117,9 +114,9 @@ class PkgVHDL:
         return True
 
     def code(self):
-        self.body.subPrograms = self.declaration.subPrograms
+        self.packageBody.subPrograms = self.packageDeclaration.subPrograms
         hdl_code = ""
         hdl_code = hdl_code + self.library.code()
-        hdl_code = hdl_code + self.declaration.code()
-        hdl_code = hdl_code + self.body.code()
+        hdl_code = hdl_code + self.packageDeclaration.code()
+        hdl_code = hdl_code + self.packageBody.code()
         return hdl_code
