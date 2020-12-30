@@ -59,6 +59,75 @@ TemplateHeaderCode = """
                     axilite_if);  -- Signal must be visible in local process scope
     end;
 
+    -- Begin procedures to test registers
+    -- Read Only
+    procedure test_ReadOnly_user_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    procedure test_ReadOnly_axi_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    -- Read Write
+    procedure test_ReadWrite_user_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    procedure test_ReadWrite_axi_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    -- Write2Clear
+    procedure test_Write2Clear_user_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    procedure test_Write2Clear_axi_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    -- Write2Pulse
+    procedure test_Write2Pulse_user_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+
+    procedure test_Write2Pulse_axi_side(
+      addr_value : in unsigned;
+      data_value : in std_logic_vector;
+      reg : in std_logic_vector)
+    is
+    begin
+    end;
+    
     variable data_output       : std_logic_vector(31 downto 0) := (others => '0');
     variable data_before_write : std_logic_vector(31 downto 0) := (others => '0');
     variable test_case         : natural                       := 0;
