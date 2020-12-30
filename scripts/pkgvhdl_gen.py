@@ -1,6 +1,5 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
-# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -13,6 +12,10 @@
 # OR CONDITIONS OF ANY KIND, either express or implied. See the License for
 # the specific language governing permissions and limitations under the License.
 #################################################################################
+## Contributor list:
+## 2020 - Ricardo F Tafas Jr - https://github.com/rftafas
+## 2020 - T.P. Correa - https://github.com/tpcorrea
+
 import sys
 import os
 import vhdl_gen as vhdl
@@ -23,9 +26,9 @@ class PackageDeclarationObj:
     def __init__(self, name):
         self.name = name
         self.generic = vhdl.GenericList()
+        self.genericTypes = vhdl.CustomTypeList()
         self.constant = vhdl.ConstantList()
         self.component = vhdl.ComponentList()
-        self.record = vhdl.RecordList()
         self.signal = vhdl.SignalList()
         self.subPrograms = vhdl.SubProgramList()
         self.customTypes = vhdl.CustomTypeList()
@@ -33,15 +36,21 @@ class PackageDeclarationObj:
         self.declarationFooter = vhdl.GenericCodeBlock(1)
 
     def code(self, indent_level=0):
+        hdl_code = ""
         hdl_code = vhdl.indent(indent_level) + ("package %s is\r\n" % self.name)
-        # Constants
-        hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- constants  (\r\n")
-        if (self.constant):
-            hdl_code = hdl_code + self.constant.code(indent_level+1)
+        hdl_code = hdl_code + "\r\n"
+        # Pkg Generics
+        if (self.generic or self.genericTypes):
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("generic  (\r\n")
+            hdl_code = hdl_code + self.generic.code(indent_level+1)
+            hdl_code = hdl_code + self.genericTypes.code(indent_level+1)
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
             hdl_code = hdl_code + "\r\n"
         else:
-            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("--constant_declaration_tag\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--generic  (\r\n")
+            hdl_code = hdl_code + vhdl.indent(indent_level+2) + ("--Package Generics go here.\r\n")
             hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("--);\r\n")
+            hdl_code = hdl_code + "\r\n"
 
         hdl_code = hdl_code + self.declarationHeader.code()
         hdl_code = hdl_code + self.constant.code()
@@ -68,7 +77,7 @@ class PackageBodyObj:
         hdl_code = hdl_code + "\r\n"
         # Header
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeHeader.code(indent_level)
+            hdl_code = hdl_code + self.bodyCodeHeader.code()
             hdl_code = hdl_code + "\r\n"
         # Functions
         hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Functions & Procedures\r\n")
@@ -80,7 +89,7 @@ class PackageBodyObj:
 
         # Footer
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeFooter.code(indent_level)
+            hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + vhdl.indent(indent_level) + ("end package body;\r\n")
         hdl_code = hdl_code + "\r\n"
@@ -90,6 +99,7 @@ class PackageBodyObj:
 class PkgVHDL:
     def __init__(self, name):
         self.name = name
+        self.fileHeader = vhdl.fileHeader
         self.library = vhdl.LibraryList()
         self.packageBody = PackageBodyObj(name)
         self.packageDeclaration = PackageDeclarationObj(name)
@@ -116,6 +126,7 @@ class PkgVHDL:
     def code(self):
         self.packageBody.subPrograms = self.packageDeclaration.subPrograms
         hdl_code = ""
+        hdl_code = hdl_code + self.fileHeader.code()
         hdl_code = hdl_code + self.library.code()
         hdl_code = hdl_code + self.packageDeclaration.code()
         hdl_code = hdl_code + self.packageBody.code()

@@ -1,6 +1,5 @@
 #################################################################################
 # Copyright 2020 Ricardo F Tafas Jr
-# Contrib.: T.P. Correa
 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -13,6 +12,10 @@
 # OR CONDITIONS OF ANY KIND, either express or implied. See the License for
 # the specific language governing permissions and limitations under the License.
 #################################################################################
+## Contributor list:
+## 2020 - Ricardo F Tafas Jr - https://github.com/rftafas
+## 2020 - T.P. Correa - https://github.com/tpcorrea
+
 import sys
 import os
 import vhdl_gen as vhdl
@@ -538,17 +541,22 @@ class RegisterBank(vhdl.BasicVHDL):
                                                              (index, vectorRange, defaultvalue, clearname, elsevalue))
         self.architecture.bodyCodeFooter.add("")
 
-    def code(self):
+    def _generate(self):
         if (not self.generate_code):
             self.updatePort()
             self.RegisterPortAdd()
             self.registerConnection()
             self.registerSetConnection()
             self.registerClearConnection()
+            self.pkg.packageDeclaration.component.append(self.object())
             self.generate_code = True
+
+    def code(self):
+        self._generate()
         return vhdl.BasicVHDL.code(self)
 
     def write_file(self):
+        self._generate()
         self.pkg.write_file()
         vhdl.BasicVHDL.write_file(self)
         return True
@@ -604,8 +612,12 @@ if __name__ == '__main__':
     myregbank.add(7, "reg2clear")
     myregbank.reg[7].add("reg2clear", "ReadWrite", 0, 32)
     myregbank.reg[7][0].externalClear = True
-    print(myregbank.code())
-    #myregbank.SetPortAsRecord()
     myregbank.write_file()
-    print("-------------------------------------------------------------")
-    print("The example will be stored at ./output/myregbank.vhd")
+    print("----------------------------------------------------------------")
+    try:
+        if "-r" in sys.argv[1]:
+            myregbank.SetPortAsRecord()
+    except:
+        print("To generate this example with a record output, add \"-r\".")
+    print("The example regbank is stored at ./output/myregbank.vhd")
+    print("The companion package is stored at ./output/myregbank_pkg.vhd")
