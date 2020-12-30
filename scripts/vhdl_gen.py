@@ -118,7 +118,10 @@ class GenericObj:
         self.type = type
 
     def code(self, indent_level=0):
-        hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
+        if self.init_value:
+            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
+        else:
+            hdl_code = indent(indent_level + 2) + ("%s : %s;\r\n" % (self.name, self.type))
         return hdl_code
 
 
@@ -169,7 +172,9 @@ class IncompleteTypeObj:
         self.name = name
 
     def code(self):
+        hdl_code = ""
         hdl_code = "type %s;" % self.name
+        hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 class EnumerationTypeObj:
@@ -191,6 +196,7 @@ class EnumerationTypeObj:
     def code(self):
         hdl_code = ""
         hdl_code = "type %s is (%s);" % (self.name,VHDLenum(self.typeElement))
+        hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 class ArrayTypeObj:
@@ -200,7 +206,9 @@ class ArrayTypeObj:
         self.arrayType = args[1]
 
     def code(self):
+        hdl_code = ""
         hdl_code = indent(1) + "type %s is array (%s) of %s;" % (self.name,self.arrayRange,self.arrayType)
+        hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 class RecordTypeObj:
@@ -208,17 +216,21 @@ class RecordTypeObj:
         self.name = name
 
         if args:
-            self.element = arg[0]
+            if isinstance(args[0],GenericList):
+                self.element = args[0]
         else:
-            self.element = genericList()
+            self.element = GenericList()
 
-    def add(self, name, type, init):
-        self.element.add(name, type, init)
+    def add(self, name, type):
+        self.element.add(name, type, "")
 
     def code(self):
-        hdl_code = "type %s is record\r\n" % self.name
-        hdl_code = self.element.code()
-        hdl_code = "end record %s;" % self.name
+        hdl_code = ""
+        hdl_code = hdl_code + "type %s is record\r\n" % self.name
+        hdl_code = hdl_code + self.element.code()
+        hdl_code = hdl_code + "end record %s;\r\n" % self.name
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
 
 class CustomTypeList(dict):
     def add(self, name, type, *args):
@@ -367,10 +379,10 @@ class FunctionObj:
         self.name = name
         # todo: generic types here.
         self.customTypes = CustomTypeList()
-        self.generic = genericList()
+        self.generic = GenericList()
         # function parameters in VHDL follow the same fashion as
         # generics on a portmap. name : type := init value;
-        self.parameter = genericList()
+        self.parameter = GenericList()
         self.variable = variableList()
         self.functionBody = genericCodeBlock(1)
         self.returnType = "return_type_here"
@@ -381,7 +393,7 @@ class FunctionObj:
         hdl_code = hdl_code + indent(1)+"generic (\r\n"
         # todo: generic types here.
         if not self.genericInstance:
-            for item in genericList:
+            for item in GenericList:
                 self.genericInstance.add(item,"<new value>")
         hdl_code = hdl_code + self.genericInstance.code()
         hdl_code = hdl_code + indent(1)+");\r\n"
