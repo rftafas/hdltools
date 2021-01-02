@@ -78,7 +78,7 @@ class PackageBodyObj:
         hdl_code = hdl_code + "\r\n"
         # Header
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeHeader.code(indent_level)
+            hdl_code = hdl_code + self.bodyCodeHeader.code()
             hdl_code = hdl_code + "\r\n"
         # Functions
         hdl_code = hdl_code + vhdl.indent(indent_level+1) + ("-- Functions & Procedures\r\n")
@@ -90,7 +90,7 @@ class PackageBodyObj:
 
         # Footer
         if (self.bodyCodeHeader):
-            hdl_code = hdl_code + self.bodyCodeFooter.code(indent_level)
+            hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + vhdl.indent(indent_level) + ("end package body;\r\n")
         hdl_code = hdl_code + "\r\n"
@@ -100,7 +100,8 @@ class PackageBodyObj:
 class PkgVHDL:
     def __init__(self, name, version=None):
         self.name = name
-        self.fileHeader = vhdl.fileHeader
+        self.fileHeader = vhdl.GenericCodeBlock(0)
+        self.fileHeader.add(vhdl.license_text)
         self.library = vhdl.LibraryList()
         self.declaration = PackageDeclarationObj(name)
         self.body = PackageBodyObj(name)
@@ -124,7 +125,7 @@ class PkgVHDL:
         return True
 
     def code(self):
-        self.packageBody.subPrograms = self.packageDeclaration.subPrograms
+        self.body.subPrograms = self.declaration.subPrograms
         hdl_code = ""
         hdl_code = hdl_code + self.fileHeader.code()
         hdl_code = hdl_code + self.library.code()

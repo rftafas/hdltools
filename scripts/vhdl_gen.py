@@ -297,8 +297,8 @@ class RecordTypeObj:
         else:
             self.element = GenericList()
 
-    def add(self, name, type):
-        self.element.add(name, type, "")
+    def add(self, name, type, init=None):
+        self.element.add(name, type, init)
 
     def code(self):
         hdl_code = ""

@@ -213,19 +213,18 @@ class TestBench(vhdl.BasicVHDL):
         self.architecture.declarationHeader.add("id_for_bfm                 => ID_BFM,")
         self.architecture.declarationHeader.add("id_for_bfm_wait            => ID_BFM_WAIT,")
         self.architecture.declarationHeader.add("id_for_bfm_poll            => ID_BFM_POLL);")
+        # Custom Type
+        self.architecture.declarationHeader.add("subtype ST_AXILite_32 is t_axilite_if (")
+        self.architecture.declarationHeader.add("write_address_channel (awaddr(%d downto 0))," % (self.datasize - 1))
+        self.architecture.declarationHeader.add("write_data_channel (wdata(%d downto 0), wstrb(%d downto 0))," %
+                                                (self.datasize - 1, int(self.datasize/8) - 1))
+        self.architecture.declarationHeader.add("read_address_channel (araddr(%d downto 0))," % (self.datasize - 1))
+        self.architecture.declarationHeader.add("read_data_channel (rdata(%d downto 0)));" % (self.datasize - 1))
 
         # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.architecture.constant.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
         self.architecture.constant.add("axi_aclk_period_c", "time", "10 ns")
-        # Custom Type
-
-        self.architecture.customTypes.add("subtype ST_AXILite_32 is t_axilite_if (")
-        self.architecture.customTypes.add("write_address_channel (awaddr(%d downto 0))," % (self.datasize - 1))
-        self.architecture.customTypes.add("write_data_channel (wdata(%d downto 0), wstrb(%d downto 0))," %
-                                          (self.datasize - 1, int(self.datasize/8) - 1))
-        self.architecture.customTypes.add("read_address_channel (araddr(%d downto 0))," % (self.datasize - 1))
-        self.architecture.customTypes.add("read_data_channel (rdata(%d downto 0)));" % (self.datasize - 1))
 
         # Signals
         self.architecture.signal.add("S_AXI_ACLK", "std_logic")

@@ -346,8 +346,8 @@ class RegisterBank(vhdl.BasicVHDL):
         self.useRecords = useRecords
         if self.useRecords:
             self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg", self.version)
-            self.pkg.addRecord("reg_i")
-            self.pkg.addRecord("reg_o")
+            self.pkg.declaration.customTypes.add("reg_i", "Record")
+            self.pkg.declaration.customTypes.add("reg_o", "Record")
             self.pkg.library.add("IEEE")
             self.pkg.library["IEEE"].package.add("std_logic_1164")
             self.pkg.library["IEEE"].package.add("numeric_std")
@@ -397,7 +397,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
         # Custom type
-        self.architecture.customTypes.add("type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        self.architecture.customTypes.add("reg_t", "array", ["(REG_NUM-1 downto 0)", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)"])
         # Signals
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
@@ -458,7 +458,7 @@ class RegisterBank(vhdl.BasicVHDL):
                 try:
                     if register[bit].externalClear:
                         if self.useRecords:
-                            self.pkg.declaration.record["reg_i"].add(
+                            self.pkg.declaration.customTypes["reg_i"].add(
                                 "clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
                         else:
                             self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
@@ -575,30 +575,30 @@ class RegisterBank(vhdl.BasicVHDL):
                                                       "%d" % self.reg[reg][bit].size)
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "ReadWrite":
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"),
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"),
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Clear":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         if self.reg[reg][bit].externalClear:
-                            self.pkg.declaration.record["reg_i"].add(
+                            self.pkg.declaration.customTypes["reg_i"].add(
                                 "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
                                 self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Pulse":
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
 
@@ -777,7 +777,6 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("ReadAWriteB", "SplitReadWrite", 0, 32)
 
-    tb = tbvhdl.TestBench(myregbank.entity.name, dataSize, registerNumber)
     tb = tbvhdl.TestBench(myregbank.entity.name, myregbank)
     print(myregbank.code())
     print(tb.code())
