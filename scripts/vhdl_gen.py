@@ -309,14 +309,39 @@ class RecordTypeObj:
         return hdl_code
 
 
+class SubTypeObj:
+    def __init__(self, name, *args):
+        self.name = name
+        self.ofType = args[0]
+        self.element = GenericList()
+
+    def add(self, name, type, init=None):
+        self.element.add(name, type, init)
+
+    def code(self):
+        hdl_code = ""
+        hdl_code = hdl_code + "subtype %s is %s (\r\n" % (self.name, self.ofType)
+        i = 0
+        for j in self.element:
+            i += 1
+            if (i == len(self.element)):
+                hdl_code = hdl_code + indent(1) + "%s (%s)); \n\r" % (self.element[j].name, self.element[j].type)
+            else:
+                hdl_code = hdl_code + indent(1) + "%s (%s),\n\r" % (self.element[j].name, self.element[j].type)
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+
 class CustomTypeList(dict):
     def add(self, name, type, *args):
         if "Array" in type:
-            self[name] = ArrayTypeObj(name, *args)
+            self[name] = ArrayTypeObj(name + "_t", *args)
         elif "Enumeration" in type:
-            self[name] = ArrayTypeObj(name, *args)
+            self[name] = ArrayTypeObj(name + "_t", *args)
         elif "Record" in type:
-            self[name] = RecordTypeObj(name, *args)
+            self[name] = RecordTypeObj(name + "_t", *args)
+        elif "SubType" in type:
+            self[name] = SubTypeObj(name + "_t", *args)
         else:
             self[name] = IncompleteTypeObj(name)
 
