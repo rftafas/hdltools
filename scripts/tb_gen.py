@@ -187,7 +187,7 @@ class TestBench(vhdl.BasicVHDL):
         self.library["uvvm_util"].context.add("uvvm_util_context")
         self.library["uvvm_util"].package.add("methods_pkg")
         self.library.add("vunit_lib")
-        self.library["uvvm_util"].context.add("vunit_context")
+        self.library["vunit_lib"].context.add("vunit_context")
 
         # Generics
         self.entity.generic.add("runner_cfg", "string")

@@ -168,8 +168,7 @@ class LibraryObj:
         hdl_code = hdl_code + indent(indent_level + 0) + ("library %s;\r\n" % self.name)
         for j in self.context:
             hdl_code = hdl_code + indent(indent_level + 1) + ("context %s.%s;\r\n" % (self.name, self.context[j].name))
-        for j in self.package:
-            hdl_code = hdl_code + self.package.code(self.name)
+        hdl_code = hdl_code + self.package.code(self.name)
         return hdl_code
 
 
@@ -303,7 +302,8 @@ class RecordTypeObj:
     def code(self):
         hdl_code = ""
         hdl_code = hdl_code + "type %s is record\r\n" % self.name
-        hdl_code = hdl_code + self.element.code()
+        for j in self.element:
+            hdl_code = hdl_code + indent(1) + "%s : %s;\n\r" % (self.element[j].name, self.element[j].type)
         hdl_code = hdl_code + "end record %s;\r\n" % self.name
         hdl_code = hdl_code + "\r\n"
         return hdl_code
