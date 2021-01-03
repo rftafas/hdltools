@@ -194,6 +194,7 @@ class TestBench(vhdl.BasicVHDL):
 
         # Architecture
         # declarationHeader
+        self.architecture.declarationHeader.add("constant axi_aclk_period_c : time := 10 ns;")
         self.architecture.declarationHeader.add("constant C_AXILITE_BFM_CONFIG : t_axilite_bfm_config := (")
         self.architecture.declarationHeader.add("max_wait_cycles            => 10,")
         self.architecture.declarationHeader.add("max_wait_cycles_severity   => TB_FAILURE,")
@@ -217,7 +218,6 @@ class TestBench(vhdl.BasicVHDL):
         # Constant
         self.architecture.constant.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.architecture.constant.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
-        self.architecture.constant.add("axi_aclk_period_c", "time", "10 ns")
 
         # Custom Type
         self.architecture.customTypes.add("AXILite_32", "SubType", "t_axilite_if")
@@ -252,23 +252,32 @@ class TestBench(vhdl.BasicVHDL):
             list = self.regBank.entity.port
             for j in list:
                 i = i+1
+                if "std_logic_vector" in list[j].type:
+                    range = list[j].type.replace("std_logic_vector", "")
+                else:
+                    range = ""
                 if(list[j].name == "S_AXI_ACLK" or list[j].name == "S_AXI_ARESETN"):
                     hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name, list[j].name)
                 elif "S_AXI_AW" in list[j].name:
-                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
-                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_address_channel."))
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s%s" % (list[j].name,
+                                                                                list[j].name.replace("S_AXI_", "axilite_if.write_address_channel."),
+                                                                                range)
                 elif "S_AXI_W" in list[j].name:
-                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
-                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_data_channel."))
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s%s" % (list[j].name,
+                                                                                list[j].name.replace("S_AXI_", "axilite_if.write_data_channel."),
+                                                                                range)
                 elif "S_AXI_B" in list[j].name:
-                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
-                                                                              list[j].name.replace("S_AXI_", "axilite_if.write_reponse_channel."))
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s%s" % (list[j].name,
+                                                                                list[j].name.replace("S_AXI_", "axilite_if.write_response_channel."),
+                                                                                range)
                 elif "S_AXI_AR" in list[j].name:
-                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
-                                                                              list[j].name.replace("S_AXI_", "axilite_if.read_address_channel."))
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s%s" % (list[j].name,
+                                                                                list[j].name.replace("S_AXI_", "axilite_if.read_address_channel."),
+                                                                                range)
                 elif "S_AXI_R" in list[j].name:
-                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name,
-                                                                              list[j].name.replace("S_AXI_", "axilite_if.read_data_channel."))
+                    hdl_code += vhdl.indent(indent_level + 1) + "%s => %s%s" % (list[j].name,
+                                                                                list[j].name.replace("S_AXI_", "axilite_if.read_data_channel."),
+                                                                                range)
                 else:
                     hdl_code += vhdl.indent(indent_level + 1) + "%s => %s" % (list[j].name, list[j].name)
                     self.architecture.signal.add(list[j].name, list[j].type)
@@ -322,10 +331,10 @@ class TestBench(vhdl.BasicVHDL):
         hdl_code += vhdl.indent(indent_level + 1) + "wait_num_rising_edge(S_AXI_ACLK, 1);\n\r"
         hdl_code += vhdl.indent(indent_level + 1) + "test_case := random(0, %d);\n\r" % (i - 1)
         hdl_code += vhdl.indent(indent_level + 1) + "uvvm_util.methods_pkg.log(\"Test case number: \" & to_string(test_case));\n\r"
-        hdl_code += vhdl.indent(indent_level + 1) + "case test_case is\n\r"
-        hdl_code += case_code
-        hdl_code += vhdl.indent(indent_level) + "when others=>\n\r"
-        hdl_code += vhdl.indent(indent_level) + "end case;\n\r"
+        # hdl_code += vhdl.indent(indent_level + 1) + "case test_case is\n\r"
+        # hdl_code += case_code
+        # hdl_code += vhdl.indent(indent_level) + "when others=>\n\r"
+        # hdl_code += vhdl.indent(indent_level) + "end case;\n\r"
         hdl_code += vhdl.indent(indent_level) + "wait for random(1 ns, 500 ns);"
         hdl_code += vhdl.indent(indent_level) + "end loop;"
         self.architecture.bodyCodeHeader.add(hdl_code)
