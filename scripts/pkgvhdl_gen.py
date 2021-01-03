@@ -56,6 +56,7 @@ class PackageDeclarationObj:
         hdl_code = hdl_code + self.declarationHeader.code()
         hdl_code = hdl_code + self.constant.code()
         hdl_code = hdl_code + self.customTypes.code()
+        hdl_code = hdl_code + self.customTypes.codeConstant()
         hdl_code = hdl_code + self.signal.code()
         hdl_code = hdl_code + self.subPrograms.declaration()
         hdl_code = hdl_code + self.component.code()

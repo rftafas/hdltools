@@ -308,6 +308,24 @@ class RecordTypeObj:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
+    def codeConstant(self):
+        hdl_code = ""
+        hdl_code = hdl_code + "constant %s : %s := (\r\n" % (self.name.replace("_t", "_init_c"), self.name)
+        i = 0
+        for j in self.element:
+            i += 1
+            if self.element[j].init is None:
+                init = "'0'"
+            else:
+                init = self.element[j].init
+            if (i == len(self.element)):
+                hdl_code = hdl_code + indent(1) + "%s => %s\n\r" % (self.element[j].name, init)
+            else:
+                hdl_code = hdl_code + indent(1) + "%s => %s,\n\r" % (self.element[j].name, init)
+        hdl_code = hdl_code + ");\r\n"
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
 
 class SubTypeObj:
     def __init__(self, name, *args):
@@ -347,6 +365,13 @@ class CustomTypeList(dict):
 
     def code(self, indent_level=0):
         return dictCode(self)
+
+    def codeConstant(self, indent_level=0):
+        hdl_code = ""
+        for j in self:
+            if isinstance(self[j], RecordTypeObj):
+                hdl_code = hdl_code + indent(indent_level) + self[j].codeConstant()
+        return hdl_code
 
 # ------------------- Constant -----------------------
 
