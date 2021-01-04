@@ -15,9 +15,12 @@
 #################################################################################
 import sys
 import os
+from datetime import datetime
 import vhdl_gen as vhdl
 import pkgvhdl_gen as pkgvhdl
+import tb_gen as tbvhdl
 import math
+from mdutils.mdutils import MdUtils
 
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 
@@ -265,10 +268,14 @@ class RegisterBit:
         self.name = name+getSuffix(self.direction)
         self.radix = name
         self.size = 1
+        self.description = ""
         if init is None:
             self.init = "'0'"
         else:
             self.init = init
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterSlice(RegisterBit):
@@ -277,16 +284,21 @@ class RegisterSlice(RegisterBit):
         self.size = size
         self.vhdlrange = "(%d downto 0)" % size
         self.vhdlType = "std_logic_vector(%d downto 0)" % (size-1)
+        self.description = ""
         if init is None:
             self.init = "(others => '0')"
         else:
             self.init = init
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterWord(dict):
     def __init__(self, name, size, init=None):
         dict.__init__(self)
         self.name = name
+        self.description = ""
         for j in range(size):
             self[j] = ["empty"]
         if init is None:
@@ -308,10 +320,17 @@ class RegisterWord(dict):
         else:
             print("This reg is already occupied by %s" % self[start].name)
 
+    def addDescription(self, str):
+        self.description = str
+
 
 class RegisterList(dict):
     def add(self, number, Register):
         self[number] = Register
+        self.description = ""
+
+    def addDescription(self, str):
+        self.description = str
 
 
 class RegisterBank(vhdl.BasicVHDL):
@@ -321,12 +340,14 @@ class RegisterBank(vhdl.BasicVHDL):
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(registerNumber, 2))
+        self.document = MdUtils(file_name=entity_name, title='Register Bank: %s' % entity_name)
+        self.version = datetime.now().strftime("%Y%m%d_%H%m")
 
         self.useRecords = useRecords
         if self.useRecords:
-            self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
-            self.pkg.addRecord("reg_i")
-            self.pkg.addRecord("reg_o")
+            self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg", self.version)
+            self.pkg.declaration.customTypes.add("reg_i", "Record")
+            self.pkg.declaration.customTypes.add("reg_o", "Record")
             self.pkg.library.add("IEEE")
             self.pkg.library["IEEE"].package.add("std_logic_1164")
             self.pkg.library["IEEE"].package.add("numeric_std")
@@ -371,11 +392,12 @@ class RegisterBank(vhdl.BasicVHDL):
 
         # Architecture
         # Constant
+        self.architecture.constant.add("register_bank_version_c", "String", "\"%s\"" % self.version)
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
         # Custom type
-        self.architecture.customTypes.add("type reg_t is array (REG_NUM-1 downto 0) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);")
+        self.architecture.customTypes.add("reg", "Array", "REG_NUM-1 downto 0", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
         # Signals
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
@@ -406,6 +428,10 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.signal.add("regread_en", "std_logic")
         self.architecture.signal.add("regwrite_en", "std_logic")
 
+        if self.useRecords:
+            self.architecture.bodyCodeHeader.add(
+                "assert register_bank_version_c = package_version_c report \"Package and Register Bank version mismatch\" severity warning;")
+
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)
 
@@ -432,7 +458,7 @@ class RegisterBank(vhdl.BasicVHDL):
                 try:
                     if register[bit].externalClear:
                         if self.useRecords:
-                            self.pkg.declaration.record["reg_i"].add(
+                            self.pkg.declaration.customTypes["reg_i"].add(
                                 "clear_" + register.name + "_" + register[bit].radix+"_i", register[bit].vhdlType)
                         else:
                             self.entity.port.add(register[bit].radix+"_clear_i", "in", register[bit].vhdlType)
@@ -549,30 +575,30 @@ class RegisterBank(vhdl.BasicVHDL):
                                                       "%d" % self.reg[reg][bit].size)
                     # add register field to record
                     if self.reg[reg][bit].regType == "ReadOnly":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "ReadWrite":
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "SplitReadWrite":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("in"),
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].radix + getSuffix("out"),
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Clear":
-                        self.pkg.declaration.record["reg_i"].add(
+                        self.pkg.declaration.customTypes["reg_i"].add(
                             "set_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                         if self.reg[reg][bit].externalClear:
-                            self.pkg.declaration.record["reg_i"].add(
+                            self.pkg.declaration.customTypes["reg_i"].add(
                                 "clear_" + self.reg[reg].name + "_" + self.reg[reg][bit].name,
                                 self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
                     elif self.reg[reg][bit].regType == "Write2Pulse":
-                        self.pkg.declaration.record["reg_o"].add(
+                        self.pkg.declaration.customTypes["reg_o"].add(
                             self.reg[reg].name + "_" + self.reg[reg][bit].name,
                             self.reg[reg][bit].vhdlType, self.reg[reg][bit].init)
 
@@ -584,9 +610,102 @@ class RegisterBank(vhdl.BasicVHDL):
             else:
                 self.registerPortAdd()
             self.generate_code = True
+        self.registerClearAdd()
+        self.registerConnection()
+        self.registerSetConnection()
+        self.registerClearConnection()
 
         hdl_code = vhdl.BasicVHDL.code(self)
         return hdl_code
+
+    def write_document(self):
+        self.document.new_header(1, "Details")
+        self.document.new_line("Data Width: %d" % self.datasize)
+        self.document.new_line("Number of registers: %d" % len(self.reg))
+        self.document.new_line("Version: v%s" % self.version)
+        self.document.new_line("Register Bank auto-generated using the hdltools/regbank_gen.py")
+        self.document.new_line()
+        self.document.new_header(1, "List of Registers")
+        self.document.new_line()
+        for index in self.reg:
+            register = self.reg[index]
+            self.document.new_header(2, "Register %d: %s" % (index, register.name))
+            self.document.new_line("Address: BASE + 0x%x" % index)
+            if (register.description):
+                self.document.new_line("Description: %s" % register.description)
+            self.document.new_line()
+            list_of_strings = ["Bit", "Field", "Type", "Reset", "Description"]
+            numOfRows = 1
+            for bit in register:
+                if isinstance(register[bit], RegisterBit):
+                    numOfRows = numOfRows + 1
+                    if register[bit].size > 1:
+                        range = "%d-%d" % (bit+register[bit].size-1, bit)
+                    else:
+                        range = "%d" % (bit)
+                    field = register[bit].radix
+                    type = register[bit].regType
+                    # Default value
+                    init = register[bit].init
+                    if init == "(others => '0')" or init == "'0'":
+                        init = "0x0"
+                    elif init == "'1'":
+                        init = "1"
+                    else:
+                        init = "0" + init.replace("\"", "")
+                    # decription
+                    description = register[bit].description
+                    list_of_strings.extend([range, field, type, init, description])
+            self.document.new_table(columns=5, rows=numOfRows, text=list_of_strings, text_align='center')
+        self.document.new_line()
+        self.document.new_line("hdltools available at https://github.com/rftafas/hdltools.")
+        self.document.create_md_file()
+
+    def write_header(self):
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+
+        header_code = ""
+        header_code = header_code + "#ifndef %s_H\n\r" % (self.entity.name.upper())
+        header_code = header_code + "#define %s_H\n\r" % (self.entity.name.upper())
+
+        header_code = header_code + "\n\r"
+        header_code = header_code + "/*This auto-generated header file was created using hdltools. File version:*/\n\r"
+        header_code = header_code + "#define %s_VERSION \"%s\"\n\r" % (self.entity.name.upper(), self.version)
+        header_code = header_code + "\n\r"
+
+        for index in self.reg:
+            register = self.reg[index]
+            header_code = header_code + "/*Register %s address */\n\r" % register.name
+            header_code = header_code + "#define %s_OFFSET 0x%x\n\r" % (register.name.upper(), index)
+            for bit in register:
+                if isinstance(register[bit], RegisterBit):
+                    header_code = header_code + "/*Register %s field %s */\n\r" % (register.name, register[bit].radix)
+                    fieldName = register.name.upper() + "_" + register[bit].radix.upper()
+                    header_code = header_code + "#define %s_FIELD_OFFSET %d\n\r" % (fieldName, bit)
+                    header_code = header_code + "#define %s_FIELD_WIDTH %d\n\r" % (fieldName, register[bit].size)
+                    # compute field mask
+                    mask = 0
+                    for i in range(bit, bit + register[bit].size):
+                        mask = mask + 2**i
+                    header_code = header_code + "#define %s_FIELD_MASK %s\n\r" % (fieldName, hex(mask))
+                    # Field default value
+                    if register[bit].init == "(others => '0')" or register[bit].init == "'0'":
+                        header_code = header_code + "#define %s_RESET %s\n\r" % (fieldName, "0x0")
+                    else:
+                        header_code = header_code + "#define %s_RESET 0%s\n\r" % (fieldName, register[bit].init.replace("\"", ""))
+            header_code = header_code + "\n\r"
+
+        header_code = header_code + "\n\r"
+
+        output_file_name = "output/"+self.entity.name+".h"
+        # to do: check if file exists. If so, emit a warning and
+        # check if must clear it.
+        output_file = open(output_file_name, "w+")
+        for line in header_code:
+            output_file.write(line)
+
+        output_file.close()
 
     def write_file(self):
         if (not os.path.exists("output")):
@@ -614,7 +733,9 @@ if __name__ == '__main__':
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
-    myregbank = RegisterBank("myregbank", "rtl", 32, 8)
+    dataSize = 32
+    registerNumber = 8
+    myregbank = RegisterBank("MyRegBank", "rtl", dataSize, registerNumber)
 
     # this is an axample of a read only register for ID, Golden number, Inputs
     # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
@@ -628,7 +749,10 @@ if __name__ == '__main__':
     # this is an example for a read/write generic register with external clear. It is possible
     # to choose an init value for any field
     myregbank.add(2, "myReadWrite2")
+    myregbank.reg[2].addDescription("To improve the documentation you can add a description to any \
+                                       register or register field using the * addDescription() * method.")
     myregbank.reg[2].add("myReadWrite2", "ReadWrite", 0, 32, "x\"00000023\"")
+    myregbank.reg[2][0].addDescription("Example of ReadWrite register.")
     myregbank.reg[2].externalClear = True
     # this is an example of a write to clear register
     myregbank.add(3, "MyWriteToClear")
@@ -657,8 +781,13 @@ if __name__ == '__main__':
     myregbank.add(6, "ReadAWriteB")
     myregbank.reg[6].add("ReadAWriteB", "SplitReadWrite", 0, 32)
 
+    tb = tbvhdl.TestBench(myregbank.entity.name, myregbank)
     print(myregbank.code())
+    print(tb.code())
 
     myregbank.write_file()
+    myregbank.write_document()
+    myregbank.write_header()
+    tb.write_file()
     print("-------------------------------------------------------------")
     print("The example will be stored at ./output/myregbank.vhd")
