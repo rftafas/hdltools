@@ -78,6 +78,7 @@ def VHDLenum(list):
         i = i+1
         if (i == len(list)):
             hdl_code = hdl_code + list[j].code().replace(";", "")
+            hdl_code = hdl_code + list[j].code().replace(",", "")
         else:
             hdl_code = hdl_code + list[j].code()
     return hdl_code
@@ -215,7 +216,7 @@ class PortObj:
         self.direction = direction
         self.type = type
         self.init = init
-
+    
     def code(self, indent_level=0):
         if self.init is None:
             hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
@@ -608,17 +609,22 @@ class ComponentList(dict):
 
 
 class InstanceObj:
-    def __init__(self, name, value):
+    def __init__(self, name, value=""):
         self.name = name
-        self.value = ""
-
+        if value == "":
+            self.value = name
+        else:
+            self.value = value
+    
     def code(self, indent_level=0):
         hdl_code = indent(2) + ("%s => %s,\r\n" % (self.name, self.value))
         return hdl_code
 
 
 class InstanceObjList(dict):
-    def add(self, name, type, value):
+    def add(self, name, value=""):
+        if value == "":
+            self[name] = InstanceObj(name, name)
         self[name] = InstanceObj(name, value)
 
     def code(self, indent_level=0):
@@ -626,12 +632,26 @@ class InstanceObjList(dict):
 
 
 class ComponentInstanceObj:
-    def __init__(self, instance_name, component_name):
-        self.instance_name = instance_name
+    def __init__(self, component_name):
         self.component_name = component_name
+        self.instance_name = component_name + "_u"
         self.generic = InstanceObjList()
         self.port = InstanceObjList()
         self.filename = ""
+          
+    def __call__(self, instance_name):
+        self.instance_name = instance_name
+        return self.code()
+    
+    def read(self, input):
+        if isinstance(input,GenericList):
+            for j in input:
+                self.generic.add(j)
+
+        if isinstance(input,PortList):
+            for j in input:
+                self.port.add(j)
+
 
     def code(self, indent_level=0):
         hdl_code = indent(0) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
@@ -648,8 +668,8 @@ class ComponentInstanceObj:
 
 
 class ComponentInstanceList(dict):
-    def add(self, name):
-        self[name] = ComponentInstanceObj(name)
+    def add(self, instance_name, component_name):
+        self[instance_name] = ComponentInstanceObj(instance_name,component_name)
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -700,7 +720,7 @@ class Architecture:
         self.component = ComponentList()
         self.subPrograms = SubProgramList()
         self.customTypes = CustomTypeList()
-        self.customTypesConstants = vhdl.CustomTypeConstantList()
+        self.customTypesConstants = CustomTypeConstantList()
         self.declarationHeader = GenericCodeBlock(1)
         self.declarationFooter = GenericCodeBlock(1)
         self.bodyCodeHeader = GenericCodeBlock(1)
@@ -756,24 +776,24 @@ class BasicVHDL:
         self.work = PackageList()
         self.entity = Entity(entity_name)
         self.architecture = Architecture(architecture_name, entity_name)
+        self.instance = ComponentInstanceObj(self.entity.name)
 
     def object(self):
         self.component = ComponentObj(self.entity.name)
         self.component.generic = self.entity.generic
         self.component.port = self.entity.port
         return self.component
+    
+    def declaration(self):
+        tmp = self.object()
+        return tmp.code()
 
-    def instance(self, instance_name, generic_list, port_list):
-        self.tmpinst = ComponentInstanceObj()
-        for j in self.entity.generic.list:
-            self.tmpinst.generic.add(j.name, j.value)
-        for j in generic_list:
-            self.tmpinst.generic[j.name].value = [j.name]
-        for j in self.entity.port.list:
-            self.tmpinst.port.add(j.name, j.value)
-        for j in port_list:
-            self.tmpinst.generic[j.name].value = [j.name]
-        return self.tmpinst.code()
+    def instanciation(self, instance_name=""):
+        self.instance.read(self.entity.generic)
+        self.instance.read(self.entity.port)
+        if instance_name == "":
+            instance_name = self.entity.name+"_u"
+        return self.instance(instance_name)
 
     def write_file(self):
         hdl_code = self.code()
@@ -834,7 +854,10 @@ if __name__ == '__main__':
     ram.architecture.bodyCodeFooter.add("  end if;")
     ram.architecture.bodyCodeFooter.add("end process;")
 
-    print("----------------file starts--------------------")
+    print("############################# Ram Source Code ###############################")
     print(ram.code())
-    print("----------------file ends--------------------")
+    print("########################### Declaration Template ############################")
+    print(ram.declaration())
+    print("########################## Instantiation Template ###########################")
+    print(ram.instanciation("ram_inst"))
     ram.write_file()

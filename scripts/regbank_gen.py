@@ -679,6 +679,27 @@ class RegisterBank(vhdl.BasicVHDL):
             output_file.write(line)
 
         output_file.close()
+    
+    def write_testbench(self):
+        self._generate()
+        testbench = vhdl.BasicVHDL(self.entity.name+"_tb","simulation")
+        testbench.entity.generic.add("runner_cfg", "string", "")
+        testbench.library = self.library
+        testbench.library.add("std")
+        testbench.library["std"].package.add("textio")
+        testbench.library.add("vunit_lib")
+        testbench.library["vunit_lib"].context.add("vunit_context")
+        testbench.work.add(self.pkg.name)
+
+
+        for port in self.entity.port:
+            testbench.architecture.signal.add(port,self.entity.port[port].type)
+
+        instance_code = self.instance("dut_i",self.entity.generic,self.entity.port)
+        testbench.architecture.bodyCodeHeader.add(instance_code)
+
+        testbench.write_file()
+
 
     def write_file(self):
         self._generate()
@@ -753,9 +774,8 @@ if __name__ == '__main__':
     print("C header file: ./output/myregbank.h")
     print("----------------------------------------------------------------")
 
-    tb = tbvhdl.TestBench(myregbank.entity.name, myregbank)
-    tb.write_file()
     myregbank.write_document()
     myregbank.write_header()
+    myregbank.write_testbench()
     myregbank.write_file()
     
