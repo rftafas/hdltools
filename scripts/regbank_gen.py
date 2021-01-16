@@ -340,7 +340,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.reg = RegisterList()
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(registerNumber, 2))
-        self.document = MdUtils(file_name=entity_name, title='Register Bank: %s' % entity_name)
+        self.document = MdUtils(file_name="output/"+entity_name, title='Register Bank: %s' % entity_name)
         self.version = datetime.now().strftime("%Y%m%d_%H%m")
 
         self.useRecords = useRecords
@@ -619,6 +619,9 @@ class RegisterBank(vhdl.BasicVHDL):
         return hdl_code
 
     def write_document(self):
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+
         self.document.new_header(1, "Details")
         self.document.new_line("Data Width: %d" % self.datasize)
         self.document.new_line("Number of registers: %d" % len(self.reg))
