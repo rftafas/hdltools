@@ -700,6 +700,7 @@ class Architecture:
         self.component = ComponentList()
         self.subPrograms = SubProgramList()
         self.customTypes = CustomTypeList()
+        self.customTypesConstants = vhdl.CustomTypeConstantList()
         self.declarationHeader = GenericCodeBlock(1)
         self.declarationFooter = GenericCodeBlock(1)
         self.bodyCodeHeader = GenericCodeBlock(1)
@@ -720,6 +721,9 @@ class Architecture:
             hdl_code = hdl_code + "\r\n"
         if (self.customTypes):
             hdl_code = hdl_code + self.customTypes.code()
+            hdl_code = hdl_code + "\r\n"
+        if (self.customTypesConstants):
+            hdl_code = hdl_code + self.customTypesConstants.code()
             hdl_code = hdl_code + "\r\n"
         if (self.component):
             hdl_code = hdl_code + self.component.code()

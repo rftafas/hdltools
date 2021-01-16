@@ -529,7 +529,10 @@ class RegisterBank(vhdl.BasicVHDL):
                 register = self.reg[index]
                 for bit in register:
                     if isinstance(register[bit], RegisterBit):
-                        clearname = register[bit].clearName
+                        if self.useRecords:
+                            clearname = register[bit].clearName
+                        else:
+                            clearname = register[bit].clearName + "_i"
                         defaultvalue = "'1'"
                         elsevalue = "'0'"
                         vectorRange = str(bit)
