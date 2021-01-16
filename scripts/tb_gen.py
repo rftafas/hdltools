@@ -190,7 +190,7 @@ class TestBench(vhdl.BasicVHDL):
         self.library["vunit_lib"].context.add("vunit_context")
 
         # Generics
-        self.entity.generic.add("runner_cfg", "string")
+        self.entity.generic.add("runner_cfg", "string", "")
 
         # Architecture
         # declarationHeader

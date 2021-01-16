@@ -104,10 +104,11 @@ class PkgVHDL:
         self.fileHeader = vhdl.GenericCodeBlock(0)
         self.fileHeader.add(vhdl.license_text)
         self.library = vhdl.LibraryList()
-        self.declaration = PackageDeclarationObj(name)
-        self.body = PackageBodyObj(name)
-        if version is not None:
-            self.declaration.constant.add("package_version_c", "String", "\"%s\"" % version)
+        self.packageBody = PackageBodyObj(name)
+        self.packageDeclaration = PackageDeclarationObj(name)
+
+    # def object(self):
+    #     return self.packageDeclaration;
 
     def write_file(self):
         hdl_code = self.code()
@@ -126,10 +127,10 @@ class PkgVHDL:
         return True
 
     def code(self):
-        self.body.subPrograms = self.declaration.subPrograms
+        self.packageBody.subPrograms = self.packageDeclaration.subPrograms
         hdl_code = ""
         hdl_code = hdl_code + self.fileHeader.code()
         hdl_code = hdl_code + self.library.code()
-        hdl_code = hdl_code + self.declaration.code()
-        hdl_code = hdl_code + self.body.code()
+        hdl_code = hdl_code + self.packageDeclaration.code()
+        hdl_code = hdl_code + self.packageBody.code()
         return hdl_code

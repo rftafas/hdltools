@@ -20,9 +20,10 @@ import sys
 import os
 
 # TODO:
-# process
+# Process
 # Procedures
 # Block
+# Protected Types
 
 
 # NOTE:
@@ -82,7 +83,7 @@ def VHDLenum(list):
     return hdl_code
 
 
-def dictCode(DictInput, indent_level=0):
+def DictCode(DictInput, indent_level = 0):
     hdl_code = ""
     for j in DictInput:
         hdl_code = hdl_code + indent(indent_level) + DictInput[j].code()
@@ -177,28 +178,28 @@ class LibraryList(dict):
         self[name] = LibraryObj(name)
 
     def code(self, indent_level=0):
-        return dictCode(self) + "\r\n"
+        return DictCode(self) + "\r\n"
 
 
 # ------------------- Generic -----------------------
 
 
 class GenericObj:
-    def __init__(self, name, type, init):
+    def __init__(self, name, type, init_value):
         self.name = name
-        self.init = init
+        self.init_value = init_value
         self.type = type
 
     def code(self, indent_level=0):
-        if self.init is None:
-            hdl_code = indent(indent_level + 2) + ("%s : %s;\r\n" % (self.name, self.type))
+        if self.init_value:
+            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
         else:
-            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init))
+            hdl_code = indent(indent_level + 2) + ("%s : %s;\r\n" % (self.name, self.type))
         return hdl_code
 
 
 class GenericList(dict):
-    def add(self, name, type, init=None):
+    def add(self, name, type, init):
         self[name] = GenericObj(name, type, init)
 
     def code(self, indent_level=0):
@@ -308,25 +309,6 @@ class RecordTypeObj:
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
-    def codeConstant(self):
-        hdl_code = ""
-        hdl_code = hdl_code + "constant %s : %s := (\r\n" % (self.name.replace("_t", "_init_c"), self.name)
-        i = 0
-        for j in self.element:
-            i += 1
-            if self.element[j].init is None:
-                init = "'0'"
-            else:
-                init = self.element[j].init
-            if (i == len(self.element)):
-                hdl_code = hdl_code + indent(1) + "%s => %s\n\r" % (self.element[j].name, init)
-            else:
-                hdl_code = hdl_code + indent(1) + "%s => %s,\n\r" % (self.element[j].name, init)
-        hdl_code = hdl_code + ");\r\n"
-        hdl_code = hdl_code + "\r\n"
-        return hdl_code
-
-
 class SubTypeObj:
     def __init__(self, name, *args):
         self.name = name
@@ -353,18 +335,18 @@ class SubTypeObj:
 class CustomTypeList(dict):
     def add(self, name, type, *args):
         if "Array" in type:
-            self[name] = ArrayTypeObj(name + "_t", *args)
+            self[name] = ArrayTypeObj(name, *args)
         elif "Enumeration" in type:
-            self[name] = ArrayTypeObj(name + "_t", *args)
+            self[name] = ArrayTypeObj(name, *args)
         elif "Record" in type:
-            self[name] = RecordTypeObj(name + "_t", *args)
+            self[name] = RecordTypeObj(name, *args)
         elif "SubType" in type:
-            self[name] = SubTypeObj(name + "_t", *args)
+            self[name] = SubTypeObj(name, *args)
         else:
             self[name] = IncompleteTypeObj(name)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
     def codeConstant(self, indent_level=0):
         hdl_code = ""
@@ -372,6 +354,7 @@ class CustomTypeList(dict):
             if isinstance(self[j], RecordTypeObj):
                 hdl_code = hdl_code + indent(indent_level) + self[j].codeConstant()
         return hdl_code
+
 
 # ------------------- Constant -----------------------
 
@@ -391,7 +374,45 @@ class ConstantList(dict):
         self[name] = ConstantObj(name, type, init)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
+
+
+# ------------------- Custom Type Constant List -----------------------
+
+
+class RecordConstantObj(RecordTypeObj):
+    def __init__(self, name, record):
+        self.name = name
+        if isinstance(record,RecordTypeObj):
+            self.element = record.element
+            self.recordName  = record.name
+        else:
+            print("Error: object must be of record type.")
+
+    def code(self):
+        hdl_code = ""
+        hdl_code = hdl_code + "constant %s : %s := (\r\n" % (self.name, self.recordName)
+        i = 0
+        for j in self.element:
+            i += 1
+            if self.element[j].init is None:
+                init = "'0'"
+            else:
+                init = self.element[j].init
+            if (i == len(self.element)):
+                hdl_code = hdl_code + indent(1) + "%s => %s\n\r" % (self.element[j].name, init)
+            else:
+                hdl_code = hdl_code + indent(1) + "%s => %s,\n\r" % (self.element[j].name, init)
+        hdl_code = hdl_code + ");\r\n"
+        hdl_code = hdl_code + "\r\n"
+        return hdl_code
+
+class CustomTypeConstantList(dict):
+    def add(self, name, type, init):
+        pass
+
+    def code(self, indent_level=0):
+        return DictCode(self)
 
 
 # ------------------- Signals -----------------------
@@ -418,7 +439,7 @@ class SignalList(dict):
         self[name] = SignalObj(name, type, *args)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 
 # ------------------- Variables -----------------------
@@ -445,7 +466,7 @@ class VariableList(dict):
         self[name] = VariableObj(name, type, *args)
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 
 # ------------------- Functions & Procedures -----------------------
@@ -585,7 +606,7 @@ class ComponentList(dict):
             self[component_obj.name] = component_obj
 
     def code(self, indent_level=0):
-        return dictCode(self)
+        return DictCode(self)
 
 # ------------------- Instance -----------------------
 
@@ -719,7 +740,7 @@ class Architecture:
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(1) + ("--architecture_body_tag.\r\n")
         hdl_code = hdl_code + "\r\n"
-        if (self.bodyCodeFooter):
+        if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
