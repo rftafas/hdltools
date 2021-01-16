@@ -348,13 +348,6 @@ class CustomTypeList(dict):
     def code(self, indent_level=0):
         return DictCode(self)
 
-    def codeConstant(self, indent_level=0):
-        hdl_code = ""
-        for j in self:
-            if isinstance(self[j], RecordTypeObj):
-                hdl_code = hdl_code + indent(indent_level) + self[j].codeConstant()
-        return hdl_code
-
 
 # ------------------- Constant -----------------------
 
@@ -409,7 +402,10 @@ class RecordConstantObj(RecordTypeObj):
 
 class CustomTypeConstantList(dict):
     def add(self, name, type, init):
-        pass
+        if isinstance(type,RecordTypeObj):
+            self[name] = RecordConstantObj(name,type)
+        else:
+            self[name] = GenericObj(name,type,init)
 
     def code(self, indent_level=0):
         return DictCode(self)

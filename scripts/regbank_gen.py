@@ -456,17 +456,21 @@ class RegisterBank(vhdl.BasicVHDL):
         self.reg.add(number, RegisterWord(name, self.datasize))
 
     def registerPortAdd(self):
-        for index in self.reg:
-            register = self.reg[index]
-            for bit in register:
-                try:
-                    if "SplitReadWrite" in register[bit].regType:
-                        self.entity.port.add(register[bit].radix + GetSuffix("in"), "in", register[bit].vhdlType)
-                        self.entity.port.add(register[bit].radix + GetSuffix("out"), "out", register[bit].vhdlType)
-                    else:
-                        self.entity.port.add(register[bit].name, register[bit].direction, register[bit].vhdlType)
-                except:
-                    pass
+        if self.useRecords:
+            self.entity.port.add(self.entity.name+"_i","in",self.entity.name+"_i_t")
+            self.entity.port.add(self.entity.name+"_o","out",self.entity.name+"_o_t")
+        else:
+            for index in self.reg:
+                register = self.reg[index]
+                for bit in register:
+                    try:
+                        if "SplitReadWrite" in register[bit].regType:
+                            self.entity.port.add(register[bit].radix + GetSuffix("in"), "in", register[bit].vhdlType)
+                            self.entity.port.add(register[bit].radix + GetSuffix("out"), "out", register[bit].vhdlType)
+                        else:
+                            self.entity.port.add(register[bit].name, register[bit].direction, register[bit].vhdlType)
+                    except:
+                        pass
 
     def registerClearAdd(self):
         for index in self.reg:
@@ -520,24 +524,24 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.bodyCodeFooter.add("")
 
     def registerClearConnection(self):
-        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--External Clear Connection")
-        for index in self.reg:
-            register = self.reg[index]
-            for bit in register:
-                if isinstance(register[bit], RegisterBit):
-                    clearname = register[bit].radix+"_clear_i"
-                    defaultvalue = "'1'"
-                    elsevalue = "'0'"
-                    vectorRange = str(bit)
-                    if isinstance(register[bit], RegisterSlice):
-                        vectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
-                        defaultvalue = "(others=>'1')"
-                    if "Write2Clear" in register[bit].regType:
-                        elsevalue = "regwrite_s(%d)(%s)" % (index, vectorRange)
-                    if register[bit].externalClear:
-                        self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
-                                                             (index, vectorRange, defaultvalue, clearname, elsevalue))
-        self.architecture.bodyCodeFooter.add("")
+            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--External Clear Connection")
+            for index in self.reg:
+                register = self.reg[index]
+                for bit in register:
+                    if isinstance(register[bit], RegisterBit):
+                        clearname = register[bit].clearName
+                        defaultvalue = "'1'"
+                        elsevalue = "'0'"
+                        vectorRange = str(bit)
+                        if isinstance(register[bit], RegisterSlice):
+                            vectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
+                            defaultvalue = "(%s=>'1')" % register[bit].vhdlRange
+                            elsevalue = "(%s=>'0')" % register[bit].vhdlRange
+                        if "Write2Clear" in register[bit].regType:
+                            elsevalue = "regwrite_s(%d)(%s)" % (index, vectorRange)
+                        if register[bit].externalClear:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
+                                                                (index, vectorRange, defaultvalue, clearname, elsevalue))
 
     def _generate(self):
         if (not self.generate_code):
@@ -547,6 +551,35 @@ class RegisterBank(vhdl.BasicVHDL):
             self.registerClearConnection()
             self.pkg.packageDeclaration.component.append(self.object())
             self.generate_code = True
+
+    def SetPortAsRecord(self):
+            self.useRecords = True
+            out_record_name = self.entity.name+"_o_t"
+            in_record_name = self.entity.name+"_i_t"
+            self.pkg.packageDeclaration.customTypes.add(out_record_name, "Record")
+            self.pkg.packageDeclaration.customTypes.add(in_record_name, "Record")
+            for index in self.reg:
+                register = self.reg[index]
+                for element in register:
+                    try:
+                        for j in register[element].port:
+                            if register[element].externalClear:
+                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].clearName,register[element].vhdlType)
+                                self.reg[index][element].clearName = self.entity.name+"_i."+register[element].clearName
+                            
+                            if "SplitReadWrite" in register[element].regType:
+                                self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                                self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
+                                self.reg[index][element].inv_vhdlName = self.entity.name+"_o."+register[element].name
+                            elif "out" in register[element].direction:
+                                self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                                self.reg[index][element].vhdlName = self.entity.name+"_o."+register[element].name
+                            else:
+                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                                self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
+                    except:
+                        pass
 
     def code(self):
         self._generate()
@@ -702,16 +735,24 @@ if __name__ == '__main__':
     myregbank.reg[7].add("reg2clear", "ReadWrite", 0, 32)
     myregbank.reg[7][0].externalClear = True
 
+    try:
+        if "-r" in sys.argv[1]:
+            myregbank.SetPortAsRecord()
+    except:
+        print("----------------------------------------------------------------")
+        print("To generate this example with a record output, add \"-r\".")
+
+    print("----------------------------------------------------------------")
+    print("Outputs:")
+    print("HDL File:      ./output/myregbank.vhd")
+    print("HDL Package:   ./output/myregbank_pkg.vhd")
+    print("Markdown:      ./output/myregbank.md")
+    print("C header file: ./output/myregbank.h")
+    print("----------------------------------------------------------------")
+
     tb = tbvhdl.TestBench(myregbank.entity.name, myregbank)
     tb.write_file()
     myregbank.write_document()
     myregbank.write_header()
     myregbank.write_file()
-    print("----------------------------------------------------------------")
-    try:
-        if "-r" in sys.argv[1]:
-            myregbank.SetPortAsRecord()
-    except:
-        print("To generate this example with a record output, add \"-r\".")
-    print("The example regbank is stored at ./output/myregbank.vhd")
-    print("The companion package is stored at ./output/myregbank_pkg.vhd")
+    

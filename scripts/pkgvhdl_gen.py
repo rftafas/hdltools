@@ -33,6 +33,7 @@ class PackageDeclarationObj:
         self.signal = vhdl.SignalList()
         self.subPrograms = vhdl.SubProgramList()
         self.customTypes = vhdl.CustomTypeList()
+        self.customTypesConstants = vhdl.CustomTypeConstantList()
         self.declarationHeader = vhdl.GenericCodeBlock(1)
         self.declarationFooter = vhdl.GenericCodeBlock(1)
 
@@ -56,7 +57,7 @@ class PackageDeclarationObj:
         hdl_code = hdl_code + self.declarationHeader.code()
         hdl_code = hdl_code + self.constant.code()
         hdl_code = hdl_code + self.customTypes.code()
-        hdl_code = hdl_code + self.customTypes.codeConstant()
+        hdl_code = hdl_code + self.customTypesConstants.code()
         hdl_code = hdl_code + self.signal.code()
         hdl_code = hdl_code + self.subPrograms.declaration()
         hdl_code = hdl_code + self.component.code()
@@ -106,6 +107,8 @@ class PkgVHDL:
         self.library = vhdl.LibraryList()
         self.packageBody = PackageBodyObj(name)
         self.packageDeclaration = PackageDeclarationObj(name)
+        if version is not None: 
+            self.declaration.constant.add("package_version_c", "String", "\"%s\"" % version) 
 
     # def object(self):
     #     return self.packageDeclaration;
