@@ -28,6 +28,34 @@ from mdutils.mdutils import MdUtils
 
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 
+testBenchCode = """
+	S_AXI_ACLK <= not S_AXI_ACLK after 10 ns;
+
+	main : process
+  begin
+   	test_runner_setup(runner, runner_cfg);
+    S_AXI_ARESETN     <= '0';
+    wait until rising_edge(S_AXI_ACLK);
+    wait until rising_edge(S_AXI_ACLK);
+    S_AXI_ARESETN     <= '1';
+
+    while test_suite loop
+  	  if run("Sanity check for system.") then
+		 	  report "System Sane. Begin tests.";
+		 	  check_true(true, result("Sanity check for system."));
+
+      elsif run("Stand Still Test") then
+        wait for 100 us;
+        check_passed("Stand Still Test Pass.");
+
+	    end if;
+	  end loop;
+ 	  test_runner_cleanup(runner); -- Simulation ends here
+  end process;
+
+  test_runner_watchdog(runner, 100 us);
+"""
+
 TemplateCode = """
     ------------------------------------------------------------------------------------------------
     -- I/O Connections assignments
@@ -462,13 +490,11 @@ class RegisterBank(vhdl.BasicVHDL):
         else:
             for index in self.reg:
                 register = self.reg[index]
-                for bit in register:
+                for field in register:
                     try:
-                        if "SplitReadWrite" in register[bit].regType:
-                            self.entity.port.add(register[bit].radix + GetSuffix("in"), "in", register[bit].vhdlType)
-                            self.entity.port.add(register[bit].radix + GetSuffix("out"), "out", register[bit].vhdlType)
-                        else:
-                            self.entity.port.add(register[bit].name, register[bit].direction, register[bit].vhdlType)
+                        register[field].updatePort()
+                        for reg_port in register[field].port:
+                            self.entity.port.append(register[field].port[reg_port])
                     except:
                         pass
 
@@ -538,8 +564,10 @@ class RegisterBank(vhdl.BasicVHDL):
                         vectorRange = str(bit)
                         if isinstance(register[bit], RegisterSlice):
                             vectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
-                            defaultvalue = "(%s=>'1')" % register[bit].vhdlRange
-                            elsevalue = "(%s=>'0')" % register[bit].vhdlRange
+                            tmp = register[bit].vhdlRange.replace("(","")
+                            tmp = tmp.replace(")","")
+                            defaultvalue = "(%s => '1')" % tmp
+                            elsevalue = "(%s => '0')" % tmp
                         if "Write2Clear" in register[bit].regType:
                             elsevalue = "regwrite_s(%d)(%s)" % (index, vectorRange)
                         if register[bit].externalClear:
@@ -684,6 +712,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self._generate()
         testbench = vhdl.BasicVHDL(self.entity.name+"_tb","simulation")
         testbench.entity.generic.add("runner_cfg", "string", "")
+        testbench.entity.generic.add("run_time", "integer", "100")
         testbench.library = self.library
         testbench.library.add("std")
         testbench.library["std"].package.add("textio")
@@ -691,11 +720,16 @@ class RegisterBank(vhdl.BasicVHDL):
         testbench.library["vunit_lib"].context.add("vunit_context")
         testbench.work.add(self.pkg.name)
 
-
+        for element in self.entity.generic:
+            testbench.architecture.constant.add(element,self.entity.generic[element].type,self.entity.generic[element].value)
         for port in self.entity.port:
             testbench.architecture.signal.add(port,self.entity.port[port].type)
+        # set starting value to clock. All other signals should be handled by reset.
+        testbench.architecture.signal["S_AXI_ACLK"].value = "'0'"
 
-        instance_code = self.instance("dut_i",self.entity.generic,self.entity.port)
+        testbench.architecture.bodyCodeHeader.add(testBenchCode)
+
+        instance_code = self.instanciation("dut_u")
         testbench.architecture.bodyCodeHeader.add(instance_code)
 
         testbench.write_file()
@@ -709,17 +743,22 @@ class RegisterBank(vhdl.BasicVHDL):
 
 
 if __name__ == '__main__':
+    #This is one example for a register bank to serve as base for learning purposes.
+    #It is not related to any core, block or nwither it have any meaning. Just a 
+    #bunch of loose registers.
 
     # first we declare a register bank.
     # It is a 32 bit register with 8 possible positions.
     # we named the architecture "RTL".
     myregbank = RegisterBank("myregbank", "rtl", 32, 8)
 
-    # this is an axample of a read only register for ID, Golden number, Inputs
-    # we add a position (address) and name it. Also, it is a 32bit, it must start at 0.
+    # this is an axample of a read only register for ID, Golden number, or other inputs
+    # we add a position (address) and name it.
     # myregbank.add(REG_ADDRESS,"golden")
-    # myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)
     myregbank.add(0, "Golden")
+    # This golden number should be 32bit, it must start at 0. We have to name the segment, in
+    # this case, we will use 'G1'. It is not important here, but imagine multisegmented register...
+    # myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)    
     myregbank.reg[0].add("g1", "ReadOnly", 0, 32)
     # this is an example for a read/write generic register.
     myregbank.add(1, "ReadWrite1")
@@ -731,8 +770,9 @@ if __name__ == '__main__':
     # this is an example of a write to clear register
     myregbank.add(3, "WriteToClear")
     myregbank.reg[3].add("w2c1", "Write2Clear", 0, 32)
-    # wee can use just a slice on any type. Lets create a slice.
-    # we will use 2 16bit register.
+    # wee can use just a slice on any type. Lets create a slice. This is why we have REGISTER_NAME
+    # and also some SEGMENT_NAME. In this case, we will have 2 16bit register (high and low).
+    # for whatever reason, we may want it pulsed.
     myregbank.add(4, "SlicedReg")
     myregbank.reg[4].add("pulse1", "Write2Pulse", 0, 16)
     myregbank.reg[4].add("pulse2", "Write2Pulse", 16, 16)
@@ -770,6 +810,7 @@ if __name__ == '__main__':
     print("Outputs:")
     print("HDL File:      ./output/myregbank.vhd")
     print("HDL Package:   ./output/myregbank_pkg.vhd")
+    print("HDL Testbench: ./output/myregbank_tb.vhd")
     print("Markdown:      ./output/myregbank.md")
     print("C header file: ./output/myregbank.h")
     print("----------------------------------------------------------------")
