@@ -77,8 +77,10 @@ def VHDLenum(list):
     for j in list:
         i = i+1
         if (i == len(list)):
-            hdl_code = hdl_code + list[j].code().replace(";", "")
-            hdl_code = hdl_code + list[j].code().replace(",", "")
+            tmp = list[j].code()
+            tmp = tmp.replace(";", "")
+            tmp = tmp.replace(",", "")
+            hdl_code = hdl_code + tmp
         else:
             hdl_code = hdl_code + list[j].code()
     return hdl_code
@@ -186,22 +188,22 @@ class LibraryList(dict):
 
 
 class GenericObj:
-    def __init__(self, name, type, init_value):
+    def __init__(self, name, type, value):
         self.name = name
-        self.init_value = init_value
+        self.value = value
         self.type = type
 
     def code(self, indent_level=0):
-        if self.init_value:
-            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.init_value))
+        if self.value:
+            hdl_code = indent(indent_level + 2) + ("%s : %s := %s;\r\n" % (self.name, self.type, self.value))
         else:
             hdl_code = indent(indent_level + 2) + ("%s : %s;\r\n" % (self.name, self.type))
         return hdl_code
 
 
 class GenericList(dict):
-    def add(self, name, type, init):
-        self[name] = GenericObj(name, type, init)
+    def add(self, name, type, value):
+        self[name] = GenericObj(name, type, value)
 
     def code(self, indent_level=0):
         return VHDLenum(self)
@@ -211,28 +213,31 @@ class GenericList(dict):
 
 
 class PortObj:
-    def __init__(self, name, direction, type, init):
+    def __init__(self, name, direction, type, value):
         self.name = name
         self.direction = direction
         self.type = type
-        self.init = init
+        self.value = value
     
     def code(self, indent_level=0):
-        if self.init is None:
+        if self.value is None:
             hdl_code = indent(indent_level + 2) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
         else:
             hdl_code = indent(indent_level + 2) + ("%s : %s %s := %s;\r\n" %
-                                                   (self.name, self.direction, self.type, self.init))
+                                                   (self.name, self.direction, self.type, self.value))
         return hdl_code
 
 
 class PortList(dict):
-    def add(self, name, direction, type, init=None):
-        self[name] = PortObj(name, direction, type, init)
+    def add(self, name, direction, type, value=None):
+        self[name] = PortObj(name, direction, type, value)
 
     def append(self, port_obj):
         if isinstance(port_obj, PortObj):
             self[port_obj.name] = port_obj
+        else:
+            pass
+            #print("Appended element must be of class PortObj")
 
     def code(self, indent_level=0):
         return VHDLenum(self)
@@ -354,18 +359,18 @@ class CustomTypeList(dict):
 
 
 class ConstantObj:
-    def __init__(self, name, type, init):
+    def __init__(self, name, type, value):
         self.name = name
         self.type = type
-        self.init = init
+        self.value = value
 
     def code(self, indent_level=0):
-        return indent(indent_level + 1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.init)
+        return indent(indent_level + 1) + "constant %s : %s := %s;\r\n" % (self.name, self.type, self.value)
 
 
 class ConstantList(dict):
-    def add(self, name, type, init):
-        self[name] = ConstantObj(name, type, init)
+    def add(self, name, type, value):
+        self[name] = ConstantObj(name, type, value)
 
     def code(self, indent_level=0):
         return DictCode(self)
@@ -402,11 +407,11 @@ class RecordConstantObj(RecordTypeObj):
         return hdl_code
 
 class CustomTypeConstantList(dict):
-    def add(self, name, type, init):
+    def add(self, name, type, value):
         if isinstance(type,RecordTypeObj):
             self[name] = RecordConstantObj(name,type)
         else:
-            self[name] = GenericObj(name,type,init)
+            self[name] = GenericObj(name,type,value)
 
     def code(self, indent_level=0):
         return DictCode(self)
@@ -420,13 +425,13 @@ class SignalObj:
         self.name = name
         self.type = type
         if args:
-            self.init = args[0]
+            self.value = args[0]
         else:
-            self.init = "undefined"
+            self.value = ""
 
     def code(self, indent_level=0):
-        if self.init != "undefined":
-            return indent(indent_level + 1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, self.init))
+        if self.value:
+            return indent(indent_level + 1) + ("signal %s : %s := %s;\r\n" % (self.name, self.type, self.value))
         else:
             return indent(indent_level + 1) + ("signal %s : %s;\r\n" % (self.name, self.type))
 
@@ -825,9 +830,10 @@ if __name__ == '__main__':
 
     ram = BasicVHDL("ram", "behavioral")
     ram.library.add("IEEE")
+    ram.library["IEEE"].package.add("std_logic_1164")
     ram.library["IEEE"].package.add("numeric_std")
-    ram.library.add("stdexpert")
-    ram.library["stdexpert"].package.add("std_logic_expert")
+    ram.library.add("expert")
+    ram.library["expert"].package.add("std_logic_expert")
 
     ram.entity.generic.add("data_size", "positive", "8")
     ram.entity.generic.add("addr_size", "positive", "4")
@@ -840,7 +846,7 @@ if __name__ == '__main__':
     ram.entity.port.add("addr_i", "in", "std_logic_vector(addr_size-1 downto 0)")
     ram.entity.port.add("addr_o", "in", "std_logic_vector(addr_size-1 downto 0)")
 
-    ram.architecture.customTypes.add("ram_t", "Array", "2**addr_size-1 downto 0", "std_logic_vector(data_size-1 dwonto 0)")
+    ram.architecture.customTypes.add("ram_t", "Array", "2**addr_size-1 downto 0", "std_logic_vector(data_size-1 downto 0)")
 
     ram.architecture.signal.add("ram_s", "ram_t")
     ram.architecture.declarationFooter.add("--Test adding custom declarative code.")
