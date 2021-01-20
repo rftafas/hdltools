@@ -27,6 +27,9 @@ import math
 from mdutils.mdutils import MdUtils
 
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
+vunitPort = ( "aclk", "--areset_n", "awaddr", "--awprot", "awvalid", "awready", "wdata", "wstrb", "wvalid", "wready", "bresp", "bvalid", "bready", "araddr", "--arprot", "arvalid", "arready", "rdata", "rresp", "rvalid", "rready" )
+
+  
 
 testBenchCode = """
 	S_AXI_ACLK <= not S_AXI_ACLK after 10 ns;
@@ -42,19 +45,24 @@ testBenchCode = """
     while test_suite loop
   	  if run("Sanity check for system.") then
 		 	  report "System Sane. Begin tests.";
-		 	  check_true(true, result("Sanity check for system."));
+		 	  check_passed(result("Sanity check for system."));
 
-      elsif run("Stand Still Test") then
+      elsif run("Simple Run Test") then
         wait for 100 us;
-        check_passed("Stand Still Test Pass.");
+        check_passed(result("Simple Run Test Pass."));
 
 	    end if;
 	  end loop;
  	  test_runner_cleanup(runner); -- Simulation ends here
   end process;
 
-  test_runner_watchdog(runner, 100 us);
+  test_runner_watchdog(runner, 101 us);
+
 """
+
+
+
+
 
 TemplateCode = """
     ------------------------------------------------------------------------------------------------
@@ -718,10 +726,14 @@ class RegisterBank(vhdl.BasicVHDL):
         testbench.library["std"].package.add("textio")
         testbench.library.add("vunit_lib")
         testbench.library["vunit_lib"].context.add("vunit_context")
+        testbench.library["vunit_lib"].context.add("vc_context")
         testbench.work.add(self.pkg.name)
 
         for element in self.entity.generic:
             testbench.architecture.constant.add(element,self.entity.generic[element].type,self.entity.generic[element].value)
+        
+        testbench.architecture.constant.add("axi_handle","bus_master_t","new_bus(data_length => C_S_AXI_DATA_WIDTH, address_length => C_S_AXI_ADDR_WIDTH)")
+
         for port in self.entity.port:
             testbench.architecture.signal.add(port,self.entity.port[port].type)
         # set starting value to clock. All other signals should be handled by reset.
@@ -729,8 +741,17 @@ class RegisterBank(vhdl.BasicVHDL):
 
         testbench.architecture.bodyCodeHeader.add(testBenchCode)
 
-        instance_code = self.instanciation("dut_u")
-        testbench.architecture.bodyCodeHeader.add(instance_code)
+        testbench.architecture.instances.add("entity vunit_lib.axi_lite_master","axi_master_u")
+        testbench.architecture.instances["axi_master_u"].generic.add("bus_handle","axi_handle")
+
+        tmp_j = 0
+        for port in self.entity.port:
+            if tmp_j < len(vunitPort):
+                testbench.architecture.instances["axi_master_u"].port.add(vunitPort[tmp_j],port)
+                tmp_j = tmp_j + 1
+
+
+        testbench.architecture.instances.append(self.instanciation("dut_u"))
 
         testbench.write_file()
 

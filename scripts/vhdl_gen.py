@@ -265,10 +265,9 @@ class EnumerationTypeObj:
             for element in args[0]:
                 self.typeElement.append("%s," % element)
 
-    # TODO: fix error
     def add(self, input):
-        if isinstance(name, list):
-            for element in args[0]:
+        if isinstance(input, list):
+            for element in input:
                 self.typeElement.append("%s," % element)
         else:
             self.typeElement.append("%s," % input)
@@ -493,7 +492,7 @@ class FunctionObj:
         hdl_code = hdl_code + indent(1)+"generic (\r\n"
         # todo: generic types here.
         if not self.genericInstance:
-            for item in GenericList:
+            for item in self.genericInstance:
                 self.genericInstance.add(item, "<new value>")
         hdl_code = hdl_code + self.genericInstance.code()
         hdl_code = hdl_code + indent(1)+");\r\n"
@@ -534,11 +533,13 @@ class ProcedureObj:
     def __init__(self, name):
         self.name = name
 
-    def new(self, newName):
-        hdl_code = "Not implemented." % (newName, self.name)
+    def new(self):
+        hdl_code = "--Not implemented."
+        return hdl_code
 
     def declaration(self):
         hdl_code = "--Procedure Declaration not Implemented."
+        return hdl_code
 
     def code(self):
         hdl_code = "--Procedure Code not Implemented."
@@ -621,8 +622,8 @@ class InstanceObj:
         else:
             self.value = value
     
-    def code(self, indent_level=0):
-        hdl_code = indent(2) + ("%s => %s,\r\n" % (self.name, self.value))
+    def code(self, indent_level=3):
+        hdl_code = indent(indent_level) + ("%s => %s,\r\n" % (self.name, self.value))
         return hdl_code
 
 
@@ -637,9 +638,12 @@ class InstanceObjList(dict):
 
 
 class ComponentInstanceObj:
-    def __init__(self, component_name):
+    def __init__(self, component_name, *args):
         self.component_name = component_name
         self.instance_name = component_name + "_u"
+        if args:
+            self.instance_name = args[0]
+            
         self.generic = InstanceObjList()
         self.port = InstanceObjList()
         self.filename = ""
@@ -658,28 +662,32 @@ class ComponentInstanceObj:
                 self.port.add(j)
 
 
-    def code(self, indent_level=0):
-        hdl_code = indent(0) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
+    def code(self, indent_level=1):
+        hdl_code = indent(indent_level) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
         if (self.generic):
-            hdl_code = hdl_code + indent(1) + ("generic map(\r\n")
-            hdl_code = hdl_code + self.generic.code()
-            hdl_code = hdl_code + indent(1) + (")\r\n")
+            hdl_code = hdl_code + indent(indent_level+1) + ("generic map (\r\n")
+            hdl_code = hdl_code + self.generic.code(indent_level+2)
         if (self.port):
-            hdl_code = hdl_code + indent(1) + ("port map(\r\n")
-            hdl_code = hdl_code + self.port.code()
-            hdl_code = hdl_code + indent(1) + (");\r\n")
+            hdl_code = hdl_code + indent(indent_level+1) + (")\r\n")
+            hdl_code = hdl_code + indent(indent_level+1) + ("port map (\r\n")
+            hdl_code = hdl_code + self.port.code(indent_level+2)
+        hdl_code = hdl_code + indent(2) + (");\r\n")
         hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 
 class ComponentInstanceList(dict):
-    def add(self, instance_name, component_name):
-        self[instance_name] = ComponentInstanceObj(instance_name,component_name)
+    def add(self, component_name, instance_name):
+        self[instance_name] = ComponentInstanceObj(component_name,instance_name)
+
+    def append(self, input):
+        if isinstance(input,ComponentInstanceObj):
+            self[input.instance_name] = input
 
     def code(self, indent_level=0):
         hdl_code = ""
-        for j in self.list:
-            hdl_code = hdl_code + self.list[j].code()
+        for j in self:
+            hdl_code = hdl_code + self[j].code()
         return hdl_code
 
 # ------------------- Entity -----------------------
@@ -729,7 +737,7 @@ class Architecture:
         self.declarationHeader = GenericCodeBlock(1)
         self.declarationFooter = GenericCodeBlock(1)
         self.bodyCodeHeader = GenericCodeBlock(1)
-        self.instances = ""
+        self.instances = ComponentInstanceList()
         self.blocks = ""
         self.process = ""
         self.bodyCodeFooter = GenericCodeBlock(1)
@@ -737,6 +745,8 @@ class Architecture:
     def code(self, indent_level=0):
         hdl_code = ""
         hdl_code = indent(0) + ("architecture %s of %s is\r\n" % (self.name, self.entityName))
+        hdl_code = hdl_code + "\r\n"
+        hdl_code = hdl_code + indent(1) + ("--architecture_declaration_tag\r\n")
         hdl_code = hdl_code + "\r\n"
         if (self.declarationHeader):
             hdl_code = hdl_code + self.declarationHeader.code()
@@ -756,16 +766,19 @@ class Architecture:
         if (self.signal):
             hdl_code = hdl_code + self.signal.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(1) + ("--architecture_declaration_tag\r\n")
-        hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(0) + ("begin\r\n")
+        hdl_code = hdl_code + "\r\n"
+        hdl_code = hdl_code + indent(1) + ("--architecture_body_tag.\r\n")
         hdl_code = hdl_code + "\r\n"
         if (self.bodyCodeHeader):
             hdl_code = hdl_code + self.bodyCodeHeader.code()
             hdl_code = hdl_code + "\r\n"
-        hdl_code = hdl_code + indent(1) + ("--architecture_body_tag.\r\n")
-        hdl_code = hdl_code + "\r\n"
-        if (self.bodyCodeHeader):
+        # blocks will come here.
+        # process will come here.
+        if (self.instances):
+            hdl_code = hdl_code + self.instances.code()
+            hdl_code = hdl_code + "\r\n"
+        if (self.bodyCodeFooter):
             hdl_code = hdl_code + self.bodyCodeFooter.code()
             hdl_code = hdl_code + "\r\n"
         hdl_code = hdl_code + indent(0) + ("end %s;\r\n" % self.name)
@@ -781,7 +794,7 @@ class BasicVHDL:
         self.work = PackageList()
         self.entity = Entity(entity_name)
         self.architecture = Architecture(architecture_name, entity_name)
-        self.instance = ComponentInstanceObj(self.entity.name)
+        self.instance = ComponentInstanceObj(self.entity.name,self.entity.name+"_u")
 
     def object(self):
         self.component = ComponentObj(self.entity.name)
@@ -796,9 +809,10 @@ class BasicVHDL:
     def instanciation(self, instance_name=""):
         self.instance.read(self.entity.generic)
         self.instance.read(self.entity.port)
+        self.instance.instance_name = instance_name
         if instance_name == "":
             instance_name = self.entity.name+"_u"
-        return self.instance(instance_name)
+        return self.instance
 
     def write_file(self):
         hdl_code = self.code()
