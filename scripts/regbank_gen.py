@@ -26,6 +26,7 @@ import tb_gen as tbvhdl
 import math
 from mdutils.mdutils import MdUtils
 
+indent = vhdl.indent
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 vunitPort = ( "aclk", "--areset_n", "awaddr", "--awprot", "awvalid", "awready", "wdata", "wstrb", "wvalid", "wready", "bresp", "bvalid", "bready", "araddr", "--arprot", "arvalid", "arready", "rdata", "rresp", "rvalid", "rready" )
 
@@ -73,7 +74,6 @@ TemplateCode = """
     S_AXI_BRESP   <= bresp_s;
     S_AXI_BVALID  <= bvalid_s;
     S_AXI_ARREADY <= arready_s;
-    S_AXI_RDATA   <= rdata_s;
     S_AXI_RRESP   <= rresp_s;
     S_AXI_RVALID  <= rvalid_s;
 
@@ -167,15 +167,9 @@ TemplateCode = """
                     for m in 7 downto 0 loop
                         if regclear_s(j)(k*8+m) = '1' then
                             regwrite_s(j)(k*8+m) <= '0';
-                        elsif regwrite_en = '1' then
-                            if S_AXI_WSTRB(k) = '1' then
-                                if regclear_s(j)(k*8+m) = '1' then
-                                    if regwrite_s(j)(k*8+m) = '1' then
-                                        regwrite_s(j)(k*8+m) <= '0';
-                                    else
-                                        regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
-                                    end if;
-                                else
+                        elsif regwrite_en = '1' then                            
+                            if j = loc_addr then
+                                if S_AXI_WSTRB(k) = '1' then
                                     regwrite_s(j)(k*8+m) <= S_AXI_WDATA(k*8+m);
                                 end if;
                             end if;
@@ -189,30 +183,37 @@ TemplateCode = """
     ------------------------------------------------------------------------------------------------
     --Read
     ------------------------------------------------------------------------------------------------
-    raddr_p : process(S_AXI_ARESETN, S_AXI_ACLK)
+    raddr_p : process (S_AXI_ARESETN, S_AXI_ACLK)
     begin
         if S_AXI_ARESETN = '0' then
-            arready_s <= '0';
+            arready_s <= '1';
             araddr_s  <= (others => '1');
         elsif rising_edge(S_AXI_ACLK) then
-            if (arready_s = '1' and S_AXI_ARVALID = '1') then
-                arready_s <= '0';
-                araddr_s  <= S_AXI_ARADDR;
-            elsif rvalid_s = '1' then
-                arready_s <= '1';
+            if S_AXI_ARVALID = '1' then
+                arready_s  <= '0';
+                araddr_s   <= S_AXI_ARADDR;
+                regread_en <= '1';
+            elsif rvalid_s = '1' and S_AXI_RREADY = '1' then
+                arready_s  <= '1';
+                regread_en <= '0';
+            elsif rtimeout_s = '1' then
+                arready_s  <= '1';
+                regread_en <= '0';
+            else
+                regread_en <= '0';
             end if;
         end if;
     end process;
 
     --AXI uses same channel for data and response.
     --one can consider that AXI-S RRESP is sort of TUSER.
-    rresp_rdata_p : process(S_AXI_ARESETN, S_AXI_ACLK)
+    rresp_rdata_p : process (S_AXI_ARESETN, S_AXI_ACLK)
     begin
         if S_AXI_ARESETN = '0' then
             rvalid_s <= '0';
             rresp_s  <= "00";
         elsif rising_edge(S_AXI_ACLK) then
-            if arready_s = '0' then --there is an address waiting for us.
+            if regread_en = '1' then --there is an address waiting for us.
                 rvalid_s <= '1';
                 rresp_s  <= "00"; -- 'OKAY' response
             elsif S_AXI_RREADY = '1' then
@@ -254,8 +255,9 @@ TemplateCode = """
         variable reg_lock : reg_t := (others => (others => '0'));
     begin
         if (S_AXI_ARESETN = '0') then
-            reg_tmp  := (others => (others => '0'));
-            reg_lock := (others => (others => '0'));
+            reg_tmp     := (others => (others => '0'));
+            reg_lock    := (others => (others => '0'));
+            S_AXI_RDATA <= (others => '0');
         elsif (rising_edge (S_AXI_ACLK)) then
             for j in regread_s'range loop
                 for k in regread_s(0)'range loop
@@ -409,6 +411,11 @@ class RegisterBank(vhdl.BasicVHDL):
         self.pkg.library["IEEE"].package.add("std_logic_1164")
         self.pkg.library["IEEE"].package.add("numeric_std")
 
+        self.pkg.packageDeclaration.constant.add("package_version_c", "String", "\"%s\"" % self.version)
+
+        self.pkg.packageDeclaration.customTypes.add("regtypes_t","Enumeration",RegisterTypeSet)
+        self.pkg.packageDeclaration.customTypes.add("regnames_t","Enumeration")
+
         # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].package.add("std_logic_1164")
@@ -420,28 +427,6 @@ class RegisterBank(vhdl.BasicVHDL):
         # Generics
         self.entity.generic.add("C_S_AXI_ADDR_WIDTH", "integer", str(self.addrsize))
         self.entity.generic.add("C_S_AXI_DATA_WIDTH", "integer", str(self.datasize))
-        # Ports
-        self.entity.port.add("S_AXI_ACLK", "in", "std_logic")
-        self.entity.port.add("S_AXI_ARESETN", "in", "std_logic")
-        self.entity.port.add("S_AXI_AWADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.entity.port.add("S_AXI_AWPROT", "in", "std_logic_vector(2 downto 0)")
-        self.entity.port.add("S_AXI_AWVALID", "in", "std_logic")
-        self.entity.port.add("S_AXI_AWREADY", "out", "std_logic")
-        self.entity.port.add("S_AXI_WDATA", "in", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
-        self.entity.port.add("S_AXI_WSTRB", "in", "std_logic_vector((C_S_AXI_DATA_WIDTH/8)-1 downto 0)")
-        self.entity.port.add("S_AXI_WVALID", "in", "std_logic")
-        self.entity.port.add("S_AXI_WREADY", "out", "std_logic")
-        self.entity.port.add("S_AXI_BRESP", "out", "std_logic_vector(1 downto 0)")
-        self.entity.port.add("S_AXI_BVALID", "out", "std_logic")
-        self.entity.port.add("S_AXI_BREADY", "in", "std_logic")
-        self.entity.port.add("S_AXI_ARADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
-        self.entity.port.add("S_AXI_ARPROT", "in", "std_logic_vector(2 downto 0)")
-        self.entity.port.add("S_AXI_ARVALID", "in", "std_logic")
-        self.entity.port.add("S_AXI_ARREADY", "out", "std_logic")
-        self.entity.port.add("S_AXI_RDATA", "out", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
-        self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
-        self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
-        self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
 
         # Architecture
         # Constant
@@ -465,7 +450,6 @@ class RegisterBank(vhdl.BasicVHDL):
 
         self.architecture.signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("arready_s", "std_logic")
-        self.architecture.signal.add("rdata_s", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
 
         self.architecture.signal.add("rready_s", "std_logic")
         self.architecture.signal.add("rresp_s", "std_logic_vector(1 downto 0)")
@@ -481,17 +465,44 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.signal.add("regread_en", "std_logic")
         self.architecture.signal.add("regwrite_en", "std_logic")
 
-        if self.useRecords:
-            self.architecture.bodyCodeHeader.add(
-                "assert register_bank_version_c = package_version_c report \"Package and Register Bank version mismatch\" severity warning;")
+        self.architecture.bodyCodeHeader.add("assert register_bank_version_c = package_version_c\r\n" + indent(2) + "report \"Package and Register Bank version mismatch.\"\r\n" + indent(2) + "severity warning;\r\n")
 
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)
+        
+        self._resetPort()
+        self._resetArchBodyFooter()
 
-    def add(self, number, name):
-        self.reg.add(number, RegisterWord(name, self.datasize))
+    # PRIVATE API
+    def _resetArchBodyFooter(self):
+        self.architecture.bodyCodeFooter = vhdl.GenericCodeBlock(1)
 
-    def registerPortAdd(self):
+    def _resetPort(self):
+        self.entity.port = vhdl.PortList()
+        self.entity.port.add("S_AXI_ACLK", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARESETN", "in", "std_logic")
+        self.entity.port.add("S_AXI_AWADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_AWPROT", "in", "std_logic_vector(2 downto 0)")
+        self.entity.port.add("S_AXI_AWVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_AWREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_WDATA", "in", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_WSTRB", "in", "std_logic_vector((C_S_AXI_DATA_WIDTH/8)-1 downto 0)")
+        self.entity.port.add("S_AXI_WVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_WREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_BRESP", "out", "std_logic_vector(1 downto 0)")
+        self.entity.port.add("S_AXI_BVALID", "out", "std_logic")
+        self.entity.port.add("S_AXI_BREADY", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARADDR", "in", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_ARPROT", "in", "std_logic_vector(2 downto 0)")
+        self.entity.port.add("S_AXI_ARVALID", "in", "std_logic")
+        self.entity.port.add("S_AXI_ARREADY", "out", "std_logic")
+        self.entity.port.add("S_AXI_RDATA", "out", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
+        self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
+        self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
+        self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
+
+
+    def _registerPortAdd(self):
         if self.useRecords:
             self.entity.port.add(self.entity.name+"_i","in",self.entity.name+"_i_t")
             self.entity.port.add(self.entity.name+"_o","out",self.entity.name+"_o_t")
@@ -506,17 +517,7 @@ class RegisterBank(vhdl.BasicVHDL):
                     except:
                         pass
 
-    def registerClearAdd(self):
-        for index in self.reg:
-            register = self.reg[index]
-            for element in register:
-                try:
-                    for j in register[element].port:
-                        register[element].updatePort()
-                except:
-                    pass
-
-    def registerConnection(self):
+    def _registerConnection(self):
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Register Connection")
         for index in self.reg:
             register = self.reg[index]
@@ -544,7 +545,7 @@ class RegisterBank(vhdl.BasicVHDL):
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register[bit].vhdlName, index, vectorRange))
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "")
 
-    def registerSetConnection(self):
+    def _registerSetConnection(self):
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Set Connection for Write to Clear")
         for index in self.reg:
             register = self.reg[index]
@@ -557,7 +558,7 @@ class RegisterBank(vhdl.BasicVHDL):
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regset_s(%d)(%s) <= %s;" % (index, vectorRange, register[bit].vhdlName))
         self.architecture.bodyCodeFooter.add("")
 
-    def registerClearConnection(self):
+    def _registerClearConnection(self):
             self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--External Clear Connection")
             for index in self.reg:
                 register = self.reg[index]
@@ -584,41 +585,52 @@ class RegisterBank(vhdl.BasicVHDL):
 
     def _generate(self):
         if (not self.generate_code):
-            self.registerPortAdd()
-            self.registerConnection()
-            self.registerSetConnection()
-            self.registerClearConnection()
+            self._resetPort()
+            self._resetArchBodyFooter
+            self._registerPortAdd()
+            self._registerConnection()
+            self._registerSetConnection()
+            self._registerClearConnection()
             self.pkg.packageDeclaration.component.append(self.object())
             self.generate_code = True
 
+
+    # PUBLIC API
+    def add(self, number, name):
+        self.generate_code = False
+        self.reg.add(number, RegisterWord(name, self.datasize))
+
+
     def SetPortAsRecord(self):
-            self.useRecords = True
-            out_record_name = self.entity.name+"_o_t"
-            in_record_name = self.entity.name+"_i_t"
-            self.pkg.packageDeclaration.customTypes.add(out_record_name, "Record")
-            self.pkg.packageDeclaration.customTypes.add(in_record_name, "Record")
-            for index in self.reg:
-                register = self.reg[index]
-                for element in register:
-                    try:
-                        for j in register[element].port:
-                            if register[element].externalClear:
-                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].clearName,register[element].vhdlType)
-                                self.reg[index][element].clearName = self.entity.name+"_i."+register[element].clearName
-                            
-                            if "SplitReadWrite" in register[element].regType:
-                                self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
-                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
-                                self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
-                                self.reg[index][element].inv_vhdlName = self.entity.name+"_o."+register[element].name
-                            elif "out" in register[element].direction:
-                                self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
-                                self.reg[index][element].vhdlName = self.entity.name+"_o."+register[element].name
-                            else:
-                                self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
-                                self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
-                    except:
-                        pass
+        self.generate_code = False
+        self.useRecords = True
+        out_record_name = self.entity.name+"_o_t"
+        in_record_name = self.entity.name+"_i_t"
+        self.pkg.packageDeclaration.customTypes.add(out_record_name, "Record")
+        self.pkg.packageDeclaration.customTypes.add(in_record_name, "Record")
+        for index in self.reg:
+            register = self.reg[index]
+            for element in register:
+                try:
+                    for j in register[element].port:
+                        if register[element].externalClear:
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].clearName,register[element].vhdlType)
+                            self.reg[index][element].clearName = self.entity.name+"_i."+register[element].clearName
+                        
+                        if "SplitReadWrite" in register[element].regType:
+                            self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
+                            self.reg[index][element].inv_vhdlName = self.entity.name+"_o."+register[element].name
+                        elif "out" in register[element].direction:
+                            self.pkg.packageDeclaration.customTypes[out_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_o."+register[element].name
+                        else:
+                            self.pkg.packageDeclaration.customTypes[in_record_name].add(register[element].name,register[element].vhdlType)
+                            self.reg[index][element].vhdlName = self.entity.name+"_i."+register[element].name
+                except:
+                    pass
+        
 
     def code(self):
         self._generate()
