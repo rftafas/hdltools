@@ -105,9 +105,9 @@ class SingleCodeLine:
         
 
 class GenericCodeBlock:
-    def __init__(self, indent):
+    def __init__(self, indent_level = 0):
         self.list = []
-        self.indent = indent
+        self.indent = indent_level
 
     def __call__(self):
         pass
@@ -115,7 +115,9 @@ class GenericCodeBlock:
     def add(self, text):
         self.list.append(text)
 
-    def code(self):
+    def code(self, indent_level = 0):
+        if indent_level:
+            self.indent = indent_level
         hdl_code = ""
         for j in self.list:
             hdl_code = hdl_code + indent(self.indent) + str(j) + "\r\n"
@@ -269,21 +271,42 @@ class EnumerationTypeObj:
         self.name = name
         self.type = type
         self.typeElement = dict()
+        self.newLine = False
+        self.endLine = ", "
+
         if args:
             self.add(args[0])
 
+    def SetNewLine(self, input):
+        pass
+        if input:
+            self.newLine = True
+            self.endLine = ",\r\n"
+        else:
+            self.newLine = False
+            self.endLine = ", "
+        for element in self.typeElement:
+            self.typeElement[element].line_end = self.endLine
+
     def add(self, input):
         if isinstance(input, str):
-            self.typeElement[input] = SingleCodeLine(input,",")
+            self.typeElement[input] = SingleCodeLine(input, self.endLine)
         else:
             for element in input:
-                self.typeElement[element] = SingleCodeLine(" "+element,",")
+                self.typeElement[element] = SingleCodeLine(element, self.endLine)
 
-    def code(self):
+    def code(self, indent_level=1):
         hdl_code = ""
         if self.typeElement:
-            hdl_code =  indent(1) + "type %s is (%s );\r\n" % (self.name, VHDLenum(self.typeElement))
-        hdl_code = hdl_code + "\r\n"
+            hdl_code =  hdl_code + indent(indent_level) + "type %s is ( " % self.name
+            if self.newLine:
+                hdl_code = hdl_code + "\r\n"
+                hdl_code = hdl_code + "%s" % VHDLenum(self.typeElement, indent_level+1)
+                hdl_code = hdl_code + indent(indent_level)
+            else:
+                hdl_code = hdl_code + "%s" % VHDLenum(self.typeElement)
+            hdl_code = hdl_code + ");\r\n" 
+            hdl_code = hdl_code + "\r\n"
         return hdl_code
 
 

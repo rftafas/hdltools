@@ -24,6 +24,7 @@ import vhdl_gen as vhdl
 import pkgvhdl_gen as pkgvhdl
 import tb_gen as tbvhdl
 import math
+import random
 from mdutils.mdutils import MdUtils
 
 indent = vhdl.indent
@@ -33,31 +34,36 @@ vunitPort = ( "aclk", "--areset_n", "awaddr", "--awprot", "awvalid", "awready", 
   
 
 testBenchCode = """
-	S_AXI_ACLK <= not S_AXI_ACLK after 10 ns;
+S_AXI_ACLK <= not S_AXI_ACLK after 10 ns;
 
-	main : process
-  begin
-   	test_runner_setup(runner, runner_cfg);
+main : process
+    variable rdata_v : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0) := (others=>'0');
+begin
+    test_runner_setup(runner, runner_cfg);
     S_AXI_ARESETN     <= '0';
     wait until rising_edge(S_AXI_ACLK);
     wait until rising_edge(S_AXI_ACLK);
     S_AXI_ARESETN     <= '1';
 
     while test_suite loop
-  	  if run("Sanity check for system.") then
-		 	  report "System Sane. Begin tests.";
-		 	  check_passed(result("Sanity check for system."));
+        if run("Sanity check for system.") then
+            report "System Sane. Begin tests.";
+            check_passed(result("Sanity check for system."));
 
-      elsif run("Simple Run Test") then
-        wait for 100 us;
-        check_passed(result("Simple Run Test Pass."));
+        elsif run("Simple Run Test") then
+            wait for 100 us;
+            check_passed(result("Simple Run Test Pass."));
 
-	    end if;
-	  end loop;
- 	  test_runner_cleanup(runner); -- Simulation ends here
-  end process;
+        elsif run("Read Out Test") then
+--read_out_tag
+        elsif run("Scribe All Test") then
+--scribe_all_tag
+        end if;
+    end loop;
+    test_runner_cleanup(runner); -- Simulation ends here
+end process;
 
-  test_runner_watchdog(runner, 101 us);
+test_runner_watchdog(runner, 101 us);
 
 """
 
@@ -281,6 +287,20 @@ TemplateCode = """
     end process;
 """
 
+def random_vector(length):
+    bits = "01"
+    vector = "\""
+    for i in range(length):
+        vector += random.choice(bits)
+    vector += "\""
+    return vector
+
+def random_bit():
+    bits = "01"
+    vector = "'"
+    vector += random.choice(bits)
+    vector += "'"
+    return vector
 
 def GetDirection(type):
     if type in ("ReadOnly", "Write2Clear", "SplitReadWrite"):
@@ -374,11 +394,11 @@ class RegisterWord(dict):
                 self[start] = RegisterSlice(name, type, size, init)
             else:
                 self[start] = RegisterBit(name, type, init)
-                for j in range(start+1, start+size):
-                    if "empty" in self[j]:
-                        self[j] = name+"(%d)" % j
-                    else:
-                        print("Reg is already occupied by %s" % self[j].name)
+            for j in range(start+1, start+size):
+                if "empty" in self[j]:
+                    self[j] = name+"(%d)" % j
+                else:
+                    print("Reg is already occupied by %s" % self[j].name)
         else:
             print("This reg is already occupied by %s" % self[start].name)
 
@@ -403,19 +423,20 @@ class RegisterBank(vhdl.BasicVHDL):
         self.datasize = datasize
         self.addrsize = math.ceil(math.log(RegisterNumber, 2))
         self.useRecords = False
+
+        #aux files
         self.document = MdUtils(file_name="output/"+entity_name, title='Register Bank: %s' % entity_name)
         self.version = datetime.now().strftime("%Y%m%d_%H%m")
 
+        #Companion Package
         self.pkg = pkgvhdl.PkgVHDL(entity_name + "_pkg")
         self.pkg.library.add("IEEE")
         self.pkg.library["IEEE"].package.add("std_logic_1164")
         self.pkg.library["IEEE"].package.add("numeric_std")
-
         self.pkg.packageDeclaration.constant.add("package_version_c", "String", "\"%s\"" % self.version)
-
         self.pkg.packageDeclaration.customTypes.add("regtypes_t","Enumeration",RegisterTypeSet)
         self.pkg.packageDeclaration.customTypes.add("regnames_t","Enumeration")
-
+        
         # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].package.add("std_logic_1164")
@@ -528,6 +549,7 @@ class RegisterBank(vhdl.BasicVHDL):
                         vectorRange = "%d downto %d" % (bit+register[bit].size-1, bit)
                         register[bit].name = register[bit].name+"(%d downto 0)" % (register[bit].size-1)
                     if "ReadOnly" in register[bit].regType:
+                        self.pkg.packageDeclaration.customTypes["regnames_t"].add(register[bit].vhdlName)
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (index, vectorRange, register[bit].vhdlName))
                     elif "SplitReadWrite" in register[bit].regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
@@ -636,7 +658,12 @@ class RegisterBank(vhdl.BasicVHDL):
         self._generate()
         return vhdl.BasicVHDL.code(self)
 
+    def write_package(self):
+        self.pkg.write_file()
+
     def write_document(self):
+        self._generate()
+
         if (not os.path.exists("output")):
             os.makedirs("output")
 
@@ -683,6 +710,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.document.create_md_file()
 
     def write_header(self):
+        self._generate()
         if (not os.path.exists("output")):
             os.makedirs("output")
 
@@ -727,7 +755,7 @@ class RegisterBank(vhdl.BasicVHDL):
             output_file.write(line)
 
         output_file.close()
-    
+
     def write_testbench(self):
         self._generate()
         testbench = vhdl.BasicVHDL(self.entity.name+"_tb","simulation")
@@ -751,7 +779,6 @@ class RegisterBank(vhdl.BasicVHDL):
         # set starting value to clock. All other signals should be handled by reset.
         testbench.architecture.signal["S_AXI_ACLK"].value = "'0'"
 
-        testbench.architecture.bodyCodeHeader.add(testBenchCode)
 
         testbench.architecture.instances.add("entity vunit_lib.axi_lite_master","axi_master_u")
         testbench.architecture.instances["axi_master_u"].generic.add("bus_handle","axi_handle")
@@ -764,6 +791,35 @@ class RegisterBank(vhdl.BasicVHDL):
 
 
         testbench.architecture.instances.append(self.instanciation("dut_u"))
+        readout = vhdl.GenericCodeBlock(4)
+        scribeall = vhdl.GenericCodeBlock(4)
+        #adds a random value to all readable registers
+        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Read Values. Modify here at will.")
+        for index in self.reg:
+            register = self.reg[index]
+            for bit in register:
+                if isinstance(register[bit], RegisterBit):
+                    tb_value = random_bit()
+                    tb_fallback = "'0'"
+                    vector_location = "(%s)" % bit
+                    if isinstance(register[bit], RegisterSlice):
+                        tb_value = random_vector(register[bit].size)
+                        tb_fallback = "(others=>'0')"
+                        vector_location = "(%s downto %s)" % (register[bit].size + bit - 1, bit)
+                    if register[bit].regType == "ReadOnly" or register[bit].regType == "SplitReadWrite":
+                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[bit].vhdlName, tb_value))
+                        readout.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % index )
+                        readout.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register[bit].vhdlName, vector_location, register[bit].vhdlName ))                        
+                    if register[bit].regType == "Write2Clear":
+                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s, %s after 1 us;" % (register[bit].vhdlName, tb_value, tb_fallback))
+
+        readout.add(vhdl.indent(1) + "check_passed(result(\"Read Out Test Pass.\"));")
+        scribeall.add(vhdl.indent(1) + "check_passed(result(\"Scribe All Test Pass.\"));")
+
+        new_tb_code = testBenchCode.replace("--read_out_tag",readout.code())
+        new_tb_code = new_tb_code.replace("--scribe_all_tag",scribeall.code())
+
+        testbench.architecture.bodyCodeHeader.add(new_tb_code)
 
         testbench.write_file()
 
