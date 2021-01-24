@@ -44,6 +44,8 @@ begin
     wait until rising_edge(S_AXI_ACLK);
     wait until rising_edge(S_AXI_ACLK);
     S_AXI_ARESETN     <= '1';
+    wait until rising_edge(S_AXI_ACLK);
+    wait until rising_edge(S_AXI_ACLK);
 
     while test_suite loop
         if run("Sanity check for system.") then
@@ -54,10 +56,12 @@ begin
             wait for 100 us;
             check_passed(result("Simple Run Test Pass."));
 
-        elsif run("Read Out Test") then
---read_out_tag
-        elsif run("Scribe All Test") then
---scribe_all_tag
+        elsif run("Read Only Test") then
+--read_only_tag
+        elsif run("Read and Write Test") then
+--read_write_tag
+        elsif run("Split Read Write Test") then
+--split_read_write_tag
         end if;
     end loop;
     test_runner_cleanup(runner); -- Simulation ends here
@@ -159,7 +163,7 @@ TemplateCode = """
         end if;
     end process;
 
-    regwrite_en <= wready_s  and  awready_s;
+    regwrite_en <= wready_s nor awready_s;
 
     wreg_p : process (S_AXI_ACLK)
         variable loc_addr : integer;
@@ -167,7 +171,7 @@ TemplateCode = """
         if S_AXI_ARESETN = '0' then
             regwrite_s <= (others => (others => '0'));
         elsif rising_edge(S_AXI_ACLK) then
-            loc_addr := to_integer(unsigned(awaddr_s(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB)));
+            loc_addr := to_integer(awaddr_s(C_S_AXI_ADDR_WIDTH-1 downto C_S_AXI_ADDR_LSB));
             for j in regwrite_s'range loop
                 for k in C_S_AXI_ADDR_BYTE-1 downto 0 loop
                     for m in 7 downto 0 loop
@@ -192,8 +196,9 @@ TemplateCode = """
     raddr_p : process (S_AXI_ARESETN, S_AXI_ACLK)
     begin
         if S_AXI_ARESETN = '0' then
-            arready_s <= '1';
-            araddr_s  <= (others => '1');
+            arready_s  <= '1';
+            regread_en <= '0';
+            araddr_s   <= (others => '1');
         elsif rising_edge(S_AXI_ACLK) then
             if S_AXI_ARVALID = '1' then
                 arready_s  <= '0';
@@ -251,9 +256,6 @@ TemplateCode = """
         end if;
     end process;
 
-    --we only act if there is no pending read.
-    regread_en <= arready_s nand rvalid_s;
-
     --get data from ports to bus
     read_reg_p : process( S_AXI_ACLK ) is
         variable loc_addr : integer;
@@ -287,11 +289,26 @@ TemplateCode = """
     end process;
 """
 
+def byte_enable_vector(start,end,size):
+    vector = "\""
+    tmp1 = math.floor(start/8)
+    tmp2 = math.floor(end/8)
+    tmp3 = math.ceil(size/8)
+    for j in range(0,tmp3):
+        if (j < tmp1 or j > tmp2):
+            vector += "0"
+        else:
+            vector += "1"
+    vector += "\""
+    return vector
+
 def random_vector(length):
     bits = "01"
     vector = "\""
-    for i in range(length):
+    j = 0
+    while j < length:
         vector += random.choice(bits)
+        j += 1
     vector += "\""
     return vector
 
@@ -332,6 +349,7 @@ class RegisterBit:
         self.radix = name
         self.size = 1
         self.description = ""
+        self.position = ""
 
         if init is None:
             self.init = "'0'"
@@ -377,30 +395,35 @@ class RegisterSlice(RegisterBit):
         self.updatePort()
 
 class RegisterWord(dict):
-    def __init__(self, name, size, init=None):
+    def __init__(self, name, wordsize, value=None):
         dict.__init__(self)
         self.name = name
+        self.wordsize = wordsize
         self.description = ""
-        for j in range(size):
+        for j in range(self.wordsize):
             self[j] = ["empty"]
-        if init is None:
-            self.init = "(others => '0')"
+        if value is None:
+            self.value = "(others => '0')"
         else:
-            self.init = init
+            self.value = value
 
-    def add(self, name, type, start, size, init=None):
+    def add(self, name, type, start, size, value=None):
         if "empty" in self[start]:
             if size > 1:
-                self[start] = RegisterSlice(name, type, size, init)
+                self[start] = RegisterSlice(name, type, size, value)
             else:
-                self[start] = RegisterBit(name, type, init)
+                self[start] = RegisterBit(name, type, value)
             for j in range(start+1, start+size):
                 if "empty" in self[j]:
                     self[j] = name+"(%d)" % j
                 else:
                     print("Reg is already occupied by %s" % self[j].name)
+            self[start].byte_enable = byte_enable_vector(start,start+size-1,self.wordsize)
         else:
             print("This reg is already occupied by %s" % self[start].name)
+
+    def byteEnable(self, input):
+        pass
 
     def addDescription(self, str):
         self.description = str
@@ -420,8 +443,10 @@ class RegisterBank(vhdl.BasicVHDL):
         vhdl.BasicVHDL.__init__(self, entity_name, architecture_name)
         self.generate_code = False
         self.reg = RegisterList()
-        self.datasize = datasize
-        self.addrsize = math.ceil(math.log(RegisterNumber, 2))
+        self.datasize = pow(2,math.ceil(math.log(datasize, 2)))
+        self.addr_low = math.log(self.datasize/8,2)
+        self.addr_increment = math.ceil(pow(2,self.addr_low))
+        self.addrsize = math.ceil(math.log(RegisterNumber, 2) + self.addr_low )
         self.useRecords = False
 
         #aux files
@@ -453,7 +478,7 @@ class RegisterBank(vhdl.BasicVHDL):
         # Constant
         self.architecture.constant.add("register_bank_version_c", "String", "\"%s\"" % self.version)
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
-        self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", "size_of(C_S_AXI_ADDR_BYTE)")
+        self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", str(math.ceil(self.addr_low)))
         self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
         # Custom type
         self.architecture.customTypes.add("reg_t", "Array", "REG_NUM-1 downto 0", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
@@ -773,7 +798,8 @@ class RegisterBank(vhdl.BasicVHDL):
             testbench.architecture.constant.add(element,self.entity.generic[element].type,self.entity.generic[element].value)
         
         testbench.architecture.constant.add("axi_handle","bus_master_t","new_bus(data_length => C_S_AXI_DATA_WIDTH, address_length => C_S_AXI_ADDR_WIDTH)")
-
+        testbench.architecture.constant.add("addr_increment_c","integer",str(self.addr_increment))
+        
         for port in self.entity.port:
             testbench.architecture.signal.add(port,self.entity.port[port].type)
         # set starting value to clock. All other signals should be handled by reset.
@@ -791,33 +817,67 @@ class RegisterBank(vhdl.BasicVHDL):
 
 
         testbench.architecture.instances.append(self.instanciation("dut_u"))
-        readout = vhdl.GenericCodeBlock(4)
-        scribeall = vhdl.GenericCodeBlock(4)
+        read_only = vhdl.GenericCodeBlock(4)
+        read_write = vhdl.GenericCodeBlock(4)
+        split_read_write = vhdl.GenericCodeBlock(4)
         #adds a random value to all readable registers
         testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Read Values. Modify here at will.")
         for index in self.reg:
             register = self.reg[index]
+            reg_address = index * self.addr_increment
             for bit in register:
                 if isinstance(register[bit], RegisterBit):
                     tb_value = random_bit()
                     tb_fallback = "'0'"
                     vector_location = "(%s)" % bit
+
                     if isinstance(register[bit], RegisterSlice):
                         tb_value = random_vector(register[bit].size)
                         tb_fallback = "(others=>'0')"
                         vector_location = "(%s downto %s)" % (register[bit].size + bit - 1, bit)
-                    if register[bit].regType == "ReadOnly" or register[bit].regType == "SplitReadWrite":
+
+                    if register[bit].regType == "ReadOnly":
+                        read_only.add(vhdl.indent(1) + "--Testing %s" % register[bit].vhdlName)
                         testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[bit].vhdlName, tb_value))
-                        readout.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % index )
-                        readout.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register[bit].vhdlName, vector_location, register[bit].vhdlName ))                        
+                        read_only.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                        read_only.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[bit].vhdlName, register[bit].vhdlName ))                        
+
+                    if register[bit].regType == "ReadWrite":
+                        tb_value = random_vector(self.datasize)
+                        read_write.add(vhdl.indent(1) + "--Testing %s" % register[bit].vhdlName)
+                        read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value)
+                        read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[bit].byte_enable) )
+                        read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                        read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Readback and Port value: %s.\"));" % ( register[bit].vhdlName, vector_location, register[bit].vhdlName ))                        
+
+                    if register[bit].regType == "SplitReadWrite":
+                        split_read_write.add(vhdl.indent(1) + "--Testing %s;" % register[bit].vhdlName)
+                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[bit].vhdlName, tb_value))
+                        split_read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                        split_read_write.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[bit].vhdlName, register[bit].vhdlName ))                        
+                        tb_value = random_vector(self.datasize)
+                        split_read_write.add(vhdl.indent(1) + "--Testing %s;" % register[bit].inv_vhdlName)
+                        split_read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value )
+                        split_read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[bit].byte_enable) )
+                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
+                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
+                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
+                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
+                        split_read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register[bit].inv_vhdlName, vector_location, register[bit].inv_vhdlName ))                        
+
                     if register[bit].regType == "Write2Clear":
                         testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s, %s after 1 us;" % (register[bit].vhdlName, tb_value, tb_fallback))
 
-        readout.add(vhdl.indent(1) + "check_passed(result(\"Read Out Test Pass.\"));")
-        scribeall.add(vhdl.indent(1) + "check_passed(result(\"Scribe All Test Pass.\"));")
 
-        new_tb_code = testBenchCode.replace("--read_out_tag",readout.code())
-        new_tb_code = new_tb_code.replace("--scribe_all_tag",scribeall.code())
+
+        read_only.add(vhdl.indent(1) + "check_passed(result(\"Read Out Test Pass.\"));")
+        read_write.add(vhdl.indent(1) + "check_passed(result(\"Read and Write Test Pass.\"));")
+        split_read_write.add(vhdl.indent(1) + "check_passed(result(\"Split Read Write Test Pass.\"));")
+
+
+        new_tb_code = testBenchCode.replace("--read_only_tag",read_only.code())
+        new_tb_code = new_tb_code.replace("--read_write_tag",read_write.code())
+        new_tb_code = new_tb_code.replace("--split_read_write_tag",split_read_write.code())
 
         testbench.architecture.bodyCodeHeader.add(new_tb_code)
 

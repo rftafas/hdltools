@@ -66,8 +66,10 @@ except NameError:
 def indent(value):
     txt = ""
     if value > 0:
-        for j in range(tabsize * value):
+        j = 0
+        while j < tabsize * value:
             txt = txt + " "
+            j += 1
     return txt
 
 
