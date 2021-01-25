@@ -62,6 +62,8 @@ begin
 --read_write_tag
         elsif run("Split Read Write Test") then
 --split_read_write_tag
+        elsif run("Write to Clear Test") then
+--write_to_clear_tag
         end if;
     end loop;
     test_runner_cleanup(runner); -- Simulation ends here
@@ -96,7 +98,7 @@ TemplateCode = """
             awready_s <= '1';
             awaddr_s  <= (others => '1');
         elsif rising_edge(S_AXI_ACLK) then
-            if (awready_s = '1' and S_AXI_AWVALID = '1' ) then
+            if S_AXI_AWVALID = '1' then
                 awready_s <= '0';
                 awaddr_s <= S_AXI_AWADDR;
             elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
@@ -112,12 +114,34 @@ TemplateCode = """
         if S_AXI_ARESETN = '0' then
             wready_s <= '1';
         elsif rising_edge(S_AXI_ACLK) then
-            if (wready_s = '1' and S_AXI_WVALID = '1') then
+            if S_AXI_WVALID = '1' then
                 wready_s <= '0';
             elsif (S_AXI_BREADY = '1' and bvalid_s = '1') then
                 wready_s <= '1';
             elsif wtimeout_s = '1' then
                 wready_s <= '1';
+            end if;
+        end if;
+    end process;
+
+    wreg_en_p : process (S_AXI_ACLK)
+        variable lock_v : std_logic;
+    begin
+        if S_AXI_ARESETN = '0' then
+            regwrite_en <= '0';
+            lock_v := '0';
+        elsif rising_edge(S_AXI_ACLK) then
+            if lock_v = '1' then
+                regwrite_en <= '0';
+                if (S_AXI_BREADY = '1' and bvalid_s = '1') then
+                    lock_v := '1';
+                end if;
+            elsif (wready_s = '0' or S_AXI_WVALID = '1' ) and ( awready_s = '0' or S_AXI_AWVALID = '1' )then
+                regwrite_en <= '1';
+                lock_v := '1';
+            elsif wtimeout_s = '1' then
+                regwrite_en <= '0';
+                lock_v := '0';
             end if;
         end if;
     end process;
@@ -138,10 +162,10 @@ TemplateCode = """
                 bresp_timer_sr <= ( 0 => '1', others=>'0' );
             elsif bvalid_s = '1' then
                 bresp_timer_sr <= bresp_timer_sr(14 downto 0) & bresp_timer_sr(15);
-                if S_AXI_BREADY = '1' or bresp_timer_sr(15) = '0' then
+                if S_AXI_BREADY = '1' or bresp_timer_sr(15) = '1' then
                     bvalid_s <= '0';
                     bresp_s  <= "00";
-                    bresp_timer_sr <= ( others=>'0' );
+                    bresp_timer_sr <= ( 0 => '1', others=>'0' );
                 end if;
             end if;
         end if;
@@ -162,8 +186,6 @@ TemplateCode = """
             end if;
         end if;
     end process;
-
-    regwrite_en <= wready_s nor awready_s;
 
     wreg_p : process (S_AXI_ACLK)
         variable loc_addr : integer;
@@ -247,10 +269,10 @@ TemplateCode = """
         if S_AXI_ARESETN = '0' then
             rtimeout_s   <= '0';
         elsif rising_edge(S_AXI_ACLK) then
-            rtimeout_s <= wtimeout_sr(15);
-            if rready_s = '0' then
+            rtimeout_s <= rtimeout_sr(15);
+            if S_AXI_RREADY = '1' then
                 rtimeout_sr <= ( 0 => '1', others=>'0');
-            else
+            elsif rvalid_s = '1' then
                 rtimeout_sr <= rtimeout_sr(14 downto 0) & rtimeout_sr(15);
             end if;
         end if;
@@ -293,12 +315,13 @@ def byte_enable_vector(start,end,size):
     vector = "\""
     tmp1 = math.floor(start/8)
     tmp2 = math.floor(end/8)
-    tmp3 = math.ceil(size/8)
-    for j in range(0,tmp3):
+    j = math.ceil(size/8)-1
+    while j >= 0:
         if (j < tmp1 or j > tmp2):
             vector += "0"
         else:
             vector += "1"
+        j -= 1
     vector += "\""
     return vector
 
@@ -486,21 +509,20 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.signal.add("awaddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("awready_s", "std_logic")
         self.architecture.signal.add("wready_s", "std_logic")
-        self.architecture.signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("wtimeout_sr", "std_logic_vector(15 downto 0)", "( 0 => '1', others=>'0')")
         self.architecture.signal.add("wtimeout_s", "std_logic")
 
         self.architecture.signal.add("bresp_s", "std_logic_vector(1 downto 0)")
         self.architecture.signal.add("bvalid_s", "std_logic")
-        self.architecture.signal.add("bresp_timer_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("bresp_timer_sr", "std_logic_vector(15 downto 0)", "( 0 => '1', others=>'0')")
         self.architecture.signal.add("wtimeout_s", "std_logic")
 
         self.architecture.signal.add("araddr_s", "std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0)")
         self.architecture.signal.add("arready_s", "std_logic")
 
-        self.architecture.signal.add("rready_s", "std_logic")
         self.architecture.signal.add("rresp_s", "std_logic_vector(1 downto 0)")
         self.architecture.signal.add("rvalid_s", "std_logic")
-        self.architecture.signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)")
+        self.architecture.signal.add("rtimeout_sr", "std_logic_vector(15 downto 0)", "( 0 => '1', others=>'0')")
         self.architecture.signal.add("rtimeout_s", "std_logic")
 
         self.architecture.signal.add("regwrite_s", "reg_t", "(others=>(others=>'0'))")
@@ -629,6 +651,9 @@ class RegisterBank(vhdl.BasicVHDL):
                         if register[bit].externalClear:
                             self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s when %s = '1' else %s;" %
                                                                 (index, vectorRange, defaultvalue, clearname, elsevalue))
+                        elif "Write2Clear" in register[bit].regType:
+                            self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regclear_s(%d)(%s) <= %s;" % (index, vectorRange, elsevalue) )
+
 
     def _generate(self):
         if (not self.generate_code):
@@ -820,64 +845,82 @@ class RegisterBank(vhdl.BasicVHDL):
         read_only = vhdl.GenericCodeBlock(4)
         read_write = vhdl.GenericCodeBlock(4)
         split_read_write = vhdl.GenericCodeBlock(4)
+        write_to_clear = vhdl.GenericCodeBlock(4)
         #adds a random value to all readable registers
-        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Read Values. Modify here at will.")
         for index in self.reg:
             register = self.reg[index]
             reg_address = index * self.addr_increment
-            for bit in register:
-                if isinstance(register[bit], RegisterBit):
+            for field in register:
+                if not (isinstance(register[field],RegisterBit) or isinstance(register[field],RegisterSlice)):
+                    break
+
+                if register[field].size == 1:
                     tb_value = random_bit()
-                    tb_fallback = "'0'"
-                    vector_location = "(%s)" % bit
+                    vector_location = "(%s)" % field
+                    all_one = "'1'"
+                    all_zero = "'0'"
 
-                    if isinstance(register[bit], RegisterSlice):
-                        tb_value = random_vector(register[bit].size)
-                        tb_fallback = "(others=>'0')"
-                        vector_location = "(%s downto %s)" % (register[bit].size + bit - 1, bit)
+                else:
+                    tb_value = random_vector(register[field].size)
+                    vector_location = "(%s downto %s)" % (register[field].size + field - 1, field)
+                    all_one = "(others=>'1')"
+                    all_zero = "(others=>'0')"
 
-                    if register[bit].regType == "ReadOnly":
-                        read_only.add(vhdl.indent(1) + "--Testing %s" % register[bit].vhdlName)
-                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[bit].vhdlName, tb_value))
-                        read_only.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                        read_only.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[bit].vhdlName, register[bit].vhdlName ))                        
+                if register[field].regType == "ReadOnly":
+                    testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Read Only: %s;" % register[field].vhdlName)
+                    testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[field].vhdlName, tb_value))
+                    read_only.add(vhdl.indent(1) + "--Testing %s" % register[field].vhdlName)
+                    read_only.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                    read_only.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[field].vhdlName, register[field].vhdlName ))                        
 
-                    if register[bit].regType == "ReadWrite":
-                        tb_value = random_vector(self.datasize)
-                        read_write.add(vhdl.indent(1) + "--Testing %s" % register[bit].vhdlName)
-                        read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value)
-                        read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[bit].byte_enable) )
-                        read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                        read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Readback and Port value: %s.\"));" % ( register[bit].vhdlName, vector_location, register[bit].vhdlName ))                        
+                if register[field].regType == "ReadWrite":
+                    tb_value = random_vector(self.datasize)
+                    read_write.add(vhdl.indent(1) + "--Testing %s" % register[field].vhdlName)
+                    read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value)
+                    read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[field].byte_enable) )
+                    read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                    read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Readback and Port value: %s.\"));" % ( register[field].vhdlName, vector_location, register[field].vhdlName ))                        
 
-                    if register[bit].regType == "SplitReadWrite":
-                        split_read_write.add(vhdl.indent(1) + "--Testing %s;" % register[bit].vhdlName)
-                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[bit].vhdlName, tb_value))
-                        split_read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                        split_read_write.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[bit].vhdlName, register[bit].vhdlName ))                        
-                        tb_value = random_vector(self.datasize)
-                        split_read_write.add(vhdl.indent(1) + "--Testing %s;" % register[bit].inv_vhdlName)
-                        split_read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value )
-                        split_read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[bit].byte_enable) )
-                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
-                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
-                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
-                        split_read_write.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);" )
-                        split_read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register[bit].inv_vhdlName, vector_location, register[bit].inv_vhdlName ))                        
+                if register[field].regType == "SplitReadWrite":
+                    testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Split Read and Write: %s;" % register[field].vhdlName)
+                    testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register[field].vhdlName, tb_value))
+                    split_read_write.add(vhdl.indent(1) + "--Testing %s" % register[field].vhdlName)
+                    split_read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                    split_read_write.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register[field].vhdlName, register[field].vhdlName ))                        
+                    tb_value = random_vector(self.datasize)
+                    split_read_write.add(vhdl.indent(1) + "--Testing %s" % register[field].inv_vhdlName)
+                    split_read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value )
+                    split_read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[field].byte_enable) )
+                    split_read_write.add(vhdl.indent(1) + "wait for 1 us;")
+                    split_read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register[field].inv_vhdlName, vector_location, register[field].inv_vhdlName ))                        
 
-                    if register[bit].regType == "Write2Clear":
-                        testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s, %s after 1 us;" % (register[bit].vhdlName, tb_value, tb_fallback))
-
-
+                if register[field].regType == "Write2Clear":
+                    write_to_clear.add(vhdl.indent(1) + "--Testing %s: Set to %s" % (register[field].vhdlName, all_one) )
+                    write_to_clear.add(vhdl.indent(1) + "%s <= %s;" % (register[field].vhdlName, all_one))
+                    write_to_clear.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);")
+                    write_to_clear.add(vhdl.indent(1) + "%s <= %s;" % (register[field].vhdlName, all_zero))
+                    write_to_clear.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);")
+                    write_to_clear.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Ones: %s.\"));" % ( vector_location, tb_value.replace('0','1'), register[field].vhdlName ))                        
+                    write_to_clear.add(vhdl.indent(1) + "rdata_v := (others=>'0');" )
+                    write_to_clear.add(vhdl.indent(1) + "rdata_v%s := %s;" % (vector_location, all_one) )
+                    write_to_clear.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register[field].byte_enable) )
+                    write_to_clear.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
+                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Zeroes: %s.\"));" % ( vector_location, tb_value.replace('1','0'), register[field].vhdlName ))                        
 
         read_only.add(vhdl.indent(1) + "check_passed(result(\"Read Out Test Pass.\"));")
         read_write.add(vhdl.indent(1) + "check_passed(result(\"Read and Write Test Pass.\"));")
         split_read_write.add(vhdl.indent(1) + "check_passed(result(\"Split Read Write Test Pass.\"));")
+        write_to_clear.add(vhdl.indent(1) + "check_passed(result(\"Write to Clear Test Pass.\"));")
 
 
         new_tb_code = testBenchCode.replace("--read_only_tag",read_only.code())
         new_tb_code = new_tb_code.replace("--read_write_tag",read_write.code())
         new_tb_code = new_tb_code.replace("--split_read_write_tag",split_read_write.code())
+        new_tb_code = new_tb_code.replace("--write_to_clear_tag",write_to_clear.code())
+
+
+
 
         testbench.architecture.bodyCodeHeader.add(new_tb_code)
 
