@@ -77,6 +77,45 @@ test_runner_watchdog(runner, 101 us);
 
 """
 
+templateScript = '''
+from os.path import join, dirname
+import sys
+
+try:
+    from vunit import VUnit
+except:
+    print("Please, intall vunit_hdl with 'pip install vunit_hdl'")
+    print("Also, make sure to have either GHDL or Modelsim installed.")
+    exit()
+
+
+root = dirname(__file__)
+
+vu = VUnit.from_argv()
+vu.add_osvvm()
+vu.add_verification_components()
+
+try:
+    expert = vu.add_library("expert")
+    expert.add_source_files(join(root, "stdexpert/src/*.vhd"))
+except:
+    print("Missing std_logic_expert. Please, run:")
+    print("git clone https://github.com/rftafas/stdexpert.git")
+    exit()
+
+lib = vu.add_library("<name>")
+lib.add_source_files(join(root, "./*.vhd"))
+test_tb = lib.entity("<name>_tb")
+test_tb.scan_tests_from_file(join(root, "<name>_tb.vhd"))
+
+test_tb.add_config(
+    name="run_time",
+    generics=dict(run_time=100)
+)
+
+vu.main()
+'''
+
 TemplateCode = """
     ------------------------------------------------------------------------------------------------
     -- I/O Connections assignments
@@ -934,6 +973,20 @@ class RegisterBank(vhdl.BasicVHDL):
         testbench.write_file()
 
 
+    def write_script(self):
+        tmpScript = templateScript.replace("<name>",self.entity.name)
+
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+        output_file_name = "output/"+self.entity.name+"_run.py"
+        # to do: check if file exists. If so, emit a warning and
+        # check if must clear it.
+        output_file = open(output_file_name, "w+")
+        for line in tmpScript:
+            output_file.write(line)
+
+        output_file.close()
+
     def write_file(self):
         self._generate()
         vhdl.BasicVHDL.write_file(self)
@@ -943,6 +996,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.write_file()
         self.write_package()
         self.write_testbench()
+        self.write_script()
         self.write_header()
         self.write_document()
 
