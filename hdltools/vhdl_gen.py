@@ -104,7 +104,7 @@ class SingleCodeLine:
 
     def code(self):
         return self.value+self.line_end
-        
+
 
 class GenericCodeBlock:
     def __init__(self, indent_level = 0):
@@ -230,7 +230,7 @@ class PortObj:
         self.direction = direction
         self.type = type
         self.value = value
-    
+
     def code(self, indent_level=0):
         if self.value is None:
             hdl_code = indent(indent_level) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
@@ -307,7 +307,7 @@ class EnumerationTypeObj:
                 hdl_code = hdl_code + indent(indent_level)
             else:
                 hdl_code = hdl_code + "%s" % VHDLenum(self.typeElement)
-            hdl_code = hdl_code + ");\r\n" 
+            hdl_code = hdl_code + ");\r\n"
             hdl_code = hdl_code + "\r\n"
         return hdl_code
 
@@ -655,7 +655,7 @@ class InstanceObj:
             self.value = name
         else:
             self.value = value
-    
+
     def code(self, indent_level=3):
         hdl_code = indent(indent_level) + ("%s => %s,\r\n" % (self.name, self.value))
         return hdl_code
@@ -677,15 +677,15 @@ class ComponentInstanceObj:
         self.instance_name = component_name + "_u"
         if args:
             self.instance_name = args[0]
-            
+
         self.generic = InstanceObjList()
         self.port = InstanceObjList()
         self.filename = ""
-          
+
     def __call__(self, instance_name):
         self.instance_name = instance_name
         return self.code()
-    
+
     def read(self, input):
         if isinstance(input,GenericList):
             for j in input:
@@ -835,7 +835,7 @@ class BasicVHDL:
         self.component.generic = self.entity.generic
         self.component.port = self.entity.port
         return self.component
-    
+
     def declaration(self):
         tmp = self.object()
         return tmp.code()
@@ -874,44 +874,3 @@ class BasicVHDL:
         return hdl_code
 
 
-if __name__ == '__main__':
-
-    ram = BasicVHDL("ram", "behavioral")
-    ram.library.add("IEEE")
-    ram.library["IEEE"].package.add("std_logic_1164")
-    ram.library["IEEE"].package.add("numeric_std")
-    ram.library.add("expert")
-    ram.library["expert"].package.add("std_logic_expert")
-
-    ram.entity.generic.add("data_size", "positive", "8")
-    ram.entity.generic.add("addr_size", "positive", "4")
-
-    ram.entity.port.add("rst_i", "in", "std_logic")
-    ram.entity.port.add("clk_i", "in", "std_logic")
-    ram.entity.port.add("we_i", "in", "std_logic")
-    ram.entity.port.add("data_i", "in", "std_logic_vector(data_size-1 downto 0)")
-    ram.entity.port.add("data_o", "out", "std_logic_vector(data_size-1 downto 0)")
-    ram.entity.port.add("addr_i", "in", "std_logic_vector(addr_size-1 downto 0)")
-    ram.entity.port.add("addr_o", "in", "std_logic_vector(addr_size-1 downto 0)")
-
-    ram.architecture.customTypes.add("ram_t", "Array", "2**addr_size-1 downto 0", "std_logic_vector(data_size-1 downto 0)")
-
-    ram.architecture.signal.add("ram_s", "ram_t")
-    ram.architecture.declarationFooter.add("--Test adding custom declarative code.")
-    ram.architecture.bodyCodeFooter.add("ram_p : process(all)")
-    ram.architecture.bodyCodeFooter.add("begin")
-    ram.architecture.bodyCodeFooter.add("  if rising_edge(clk_i) then")
-    ram.architecture.bodyCodeFooter.add("    if we_i = '1' then")
-    ram.architecture.bodyCodeFooter.add("      ram_s(to_integer(addr_i)) <= data_i;")
-    ram.architecture.bodyCodeFooter.add("    end if;")
-    ram.architecture.bodyCodeFooter.add("    data_o <= ram_s(to_integer(addr_o));")
-    ram.architecture.bodyCodeFooter.add("  end if;")
-    ram.architecture.bodyCodeFooter.add("end process;")
-
-    print("############################# Ram Source Code ###############################")
-    print(ram.code())
-    print("########################### Declaration Template ############################")
-    print(ram.declaration())
-    print("########################## Instantiation Template ###########################")
-    print(ram.instanciation("ram_inst"))
-    ram.write_file()

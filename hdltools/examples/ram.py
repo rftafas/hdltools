@@ -20,9 +20,9 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir)
 
-from ...scripts import vhdl_gen
+import hdltools
 
-ram = vhdl_gen.BasicVHDL("ram","behavioral")
+ram = hdltools.BasicVHDL("ram","behavioral")
 ram.Library.add("IEEE")
 ram.Library["IEEE"].package.add("numeric_std")
 ram.Library.add("stdexpert")
