@@ -47,7 +47,7 @@ class axiInfra(vhdl.basicVHDL):
         self.entity.port.add("rst_i", "in", "std_logic")
         self.entity.port.add("mclk_i", "in", "std_logic")
 
-    def create_master_ports(self, master_num, m_tdata_byte, m_tdest_size, m_tuser_size):
+    def _create_master_ports(self, master_num, m_tdata_byte, m_tdest_size, m_tuser_size):
         for j in range(master_num):
             self.entity.port.add("m%d_tdata_o " % j,"out","std_logic_vector(8*tdata_byte-1 downto 0)")
             self.entity.port.add("m%d_tstrb_o " % j,"out","std_logic_vector(tdata_byte-1   downto 0)")
@@ -57,10 +57,10 @@ class axiInfra(vhdl.basicVHDL):
             self.entity.port.add("m%d_tvalid_o" % j,"out","std_logic)")
             self.entity.port.add("m%d_tlast_o " % j,"out","std_logic)")
 
-        self.architecture.signal.add("m_tdata_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,8*self.m_tdata_byte-1) )
-        self.architecture.signal.add("m_tstrb_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tdata_byte-1) )
-        self.architecture.signal.add("m_tuser_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tuser_size-1) )
-        self.architecture.signal.add("m_tdest_s ","out","std_logic_matrix(%d downto 0)(%d downto 0)" % (master_num,self.m_tdest_size-1) )
+        self.architecture.signal.add("m_tdata_s ","out","std_logic_array(%d downto 0)(%d downto 0)" % (master_num,8*self.m_tdata_byte-1) )
+        self.architecture.signal.add("m_tstrb_s ","out","std_logic_array(%d downto 0)(%d downto 0)" % (master_num,self.m_tdata_byte-1) )
+        self.architecture.signal.add("m_tuser_s ","out","std_logic_array(%d downto 0)(%d downto 0)" % (master_num,self.m_tuser_size-1) )
+        self.architecture.signal.add("m_tdest_s ","out","std_logic_array(%d downto 0)(%d downto 0)" % (master_num,self.m_tdest_size-1) )
         self.architecture.signal.add("m_tready_s","in ","std_logic_vector(%d downto 0)" % master_num )
         self.architecture.signal.add("m_tvalid_s","out","std_logic_vector(%d downto 0)" % master_num )
         self.architecture.signal.add("m_tlast_s ","out","std_logic_vector(%d downto 0)" % master_num )
@@ -75,7 +75,7 @@ class axiInfra(vhdl.basicVHDL):
             self.architecture.bodyCodeHeader.add("m%d_tuser_o  <= m_tuser_s(%d);"   % (j, j) )
             self.architecture.bodyCodeHeader.add("m%d_tdest_o  <= m_tdest_s(%d);"   % (j, j) )
 
-    def create_master_ports(self, slave_num, s_tdata_byte, s_tdest_size, s_tuser_size):
+    def create_slave_ports(self, slave_num, s_tdata_byte, s_tdest_size, s_tuser_size):
         for j in range(slave_num):
             self.entity.port.add("s%d_tdata_i " % j,"in ","std_logic_vector(8*tdata_byte-1 downto 0)")
             self.entity.port.add("s%d_tstrb_i " % j,"in ","std_logic_vector(tdata_byte-1   downto 0)")
@@ -104,12 +104,9 @@ class axiInfra(vhdl.basicVHDL):
             self.architecture.bodyCodeHeader.add("s_tdest_s(%d)  <= s%d_tdest_i;"    % (j, j) )
 
 
-def axi_custom( entity_name, number_masters, number_slaves):
-    try:
-        master_num = sys.argv[3]
-    except:
-        error_help()
-
+class axi_custom(axiInfra):
+    def __init__(self, entity_name):
+        
     axi = axiInfra(entity_name)
     axi.entity.generic.add("m_tdata_byte", "positive", "8")
     axi.entity.generic.add("m_tuser_size", "positive", "8")

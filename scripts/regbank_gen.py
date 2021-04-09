@@ -31,7 +31,7 @@ indent = vhdl.indent
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
 vunitPort = ( "aclk", "--areset_n", "awaddr", "--awprot", "awvalid", "awready", "wdata", "wstrb", "wvalid", "wready", "bresp", "bvalid", "bready", "araddr", "--arprot", "arvalid", "arready", "rdata", "rresp", "rvalid", "rready" )
 
-  
+
 
 testBenchCode = """
 S_AXI_ACLK <= not S_AXI_ACLK after 10 ns;
@@ -437,7 +437,7 @@ class RegisterBit:
             self.inv_direction = InvertDirection(self.direction)
             self.inv_vhdlName = self.name + GetSuffix(self.inv_direction)
             self.port.add(self.inv_vhdlName,self.inv_direction,self.vhdlType)
-    
+
 
     def addDescription(self, str):
         self.description = str
@@ -519,7 +519,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.pkg.library["IEEE"].package.add("std_logic_1164")
         self.pkg.library["IEEE"].package.add("numeric_std")
         self.pkg.packageDeclaration.constant.add("package_version_c", "String", "\"%s\"" % self.version)
-        
+
         # Libraries
         self.library.add("IEEE")
         self.library["IEEE"].package.add("std_logic_1164")
@@ -537,7 +537,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.constant.add("register_bank_version_c", "String", "\"%s\"" % self.version)
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", str(math.ceil(self.addr_low)))
-        self.architecture.constant.add("REG_NUM", "integer", "2**C_S_AXI_ADDR_BYTE")
+        self.architecture.constant.add("REG_NUM", "integer", "2**(C_S_AXI_ADDR_WIDTH-C_S_AXI_ADDR_BYTE)")
         # Custom type
         self.architecture.customTypes.add("reg_t", "Array", "REG_NUM-1 downto 0", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
         # Signals
@@ -572,7 +572,7 @@ class RegisterBank(vhdl.BasicVHDL):
 
         for lines in TemplateCode.splitlines():
             self.architecture.bodyCodeHeader.add(lines)
-        
+
         self._resetPort()
         self._resetArchBodyFooter()
 
@@ -615,8 +615,8 @@ class RegisterBank(vhdl.BasicVHDL):
                     for index, register in register_word.items():
                         if (isinstance(register,RegisterBit) or isinstance(register,RegisterSlice)):
                             register.updatePort()
-                            for reg_port in register.port:
-                                self.entity.port.append(register.port[reg_port])
+                            for port_name, port_data in register.port.items():
+                                self.entity.port.append(port_data)
 
     def _registerConnection(self):
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Register Connection")
@@ -631,13 +631,13 @@ class RegisterBank(vhdl.BasicVHDL):
 
                     if "ReadOnly" in register.regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (register_num, vectorRange, register.vhdlName))
-                    
+
                     elif "SplitReadWrite" in register.regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" %
                                                              (register.inv_vhdlName, register_num, vectorRange))
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" %
                                                              (register_num, vectorRange, register.vhdlName))
-                    
+
                     elif "ReadWrite" in register.regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register.vhdlName, register_num, vectorRange))
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= regwrite_s(%d)(%s);" %
@@ -645,10 +645,10 @@ class RegisterBank(vhdl.BasicVHDL):
                     elif "Write2Clear" in register.regType:
                         # self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "regread_s(%d)(%s) <= %s;" % (register_num,vectorRange,register.name))
                         pass
-                    
+
                     elif "Write2Pulse" in register.regType:
                         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= regwrite_s(%d)(%s);" % (register.vhdlName, register_num, vectorRange))
-        
+
         self.architecture.bodyCodeFooter.add("\r\n")
 
     def _registerSetConnection(self):
@@ -729,7 +729,7 @@ class RegisterBank(vhdl.BasicVHDL):
                         if register.externalClear:
                             self.pkg.packageDeclaration.customTypes[in_record_name].add(register.clearName,"std_logic")
                             self.reg[reg_num][index].clearName = self.entity.name+"_i."+register.clearName
-                        
+
                         if "SplitReadWrite" in register.regType:
                             self.pkg.packageDeclaration.customTypes[out_record_name].add(register.name,register.vhdlType)
                             self.pkg.packageDeclaration.customTypes[in_record_name].add(register.name,register.vhdlType)
@@ -740,7 +740,7 @@ class RegisterBank(vhdl.BasicVHDL):
                             self.reg[reg_num][index].vhdlName = self.entity.name+"_o."+register.name
                         else:
                             self.pkg.packageDeclaration.customTypes[in_record_name].add(register.name,register.vhdlType)
-                            self.reg[reg_num][index].vhdlName = self.entity.name+"_i."+register.name       
+                            self.reg[reg_num][index].vhdlName = self.entity.name+"_i."+register.name
 
     def code(self):
         self._generate()
@@ -859,10 +859,10 @@ class RegisterBank(vhdl.BasicVHDL):
 
         for index, generic in self.entity.generic.items():
             testbench.architecture.constant.add(index,generic.type,generic.value)
-        
+
         testbench.architecture.constant.add("axi_handle","bus_master_t","new_bus(data_length => C_S_AXI_DATA_WIDTH, address_length => C_S_AXI_ADDR_WIDTH)")
         testbench.architecture.constant.add("addr_increment_c","integer",str(self.addr_increment))
-        
+
         for port in self.entity.port:
             testbench.architecture.signal.add(port,self.entity.port[port].type)
         # set starting value to clock. All other signals should be handled by reset.
@@ -911,7 +911,7 @@ class RegisterBank(vhdl.BasicVHDL):
                     testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register.vhdlName, tb_value))
                     read_only.add(vhdl.indent(1) + "--Testing %s" % register.vhdlName)
                     read_only.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                    read_only.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register.vhdlName, register.vhdlName ))                        
+                    read_only.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register.vhdlName, register.vhdlName ))
 
                 if register.regType == "ReadWrite":
                     tb_value = random_vector(self.datasize)
@@ -919,20 +919,20 @@ class RegisterBank(vhdl.BasicVHDL):
                     read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value)
                     read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register.byte_enable) )
                     read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                    read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Readback and Port value: %s.\"));" % ( register.vhdlName, vector_location, register.vhdlName ))                        
+                    read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Readback and Port value: %s.\"));" % ( register.vhdlName, vector_location, register.vhdlName ))
 
                 if register.regType == "SplitReadWrite":
                     testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Split Read and Write: %s;" % register.vhdlName)
                     testbench.architecture.bodyCodeFooter.add(vhdl.indent(1) + "%s <= %s;" % (register.vhdlName, tb_value))
                     split_read_write.add(vhdl.indent(1) + "--Testing %s" % register.vhdlName)
                     split_read_write.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                    split_read_write.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register.vhdlName, register.vhdlName ))                        
+                    split_read_write.add(vhdl.indent(1) + "check_equal(rdata_v%s,%s,result(\"Test Read: %s.\"));" % ( vector_location, register.vhdlName, register.vhdlName ))
                     tb_value = random_vector(self.datasize)
                     split_read_write.add(vhdl.indent(1) + "--Testing %s" % register.inv_vhdlName)
                     split_read_write.add(vhdl.indent(1) + "rdata_v := %s;" % tb_value )
                     split_read_write.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register.byte_enable) )
                     split_read_write.add(vhdl.indent(1) + "wait for 1 us;")
-                    split_read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register.inv_vhdlName, vector_location, register.inv_vhdlName ))                        
+                    split_read_write.add(vhdl.indent(1) + "check_equal(%s,rdata_v%s,result(\"Test Read: %s.\"));" % ( register.inv_vhdlName, vector_location, register.inv_vhdlName ))
 
                 if register.regType == "Write2Clear":
                     write_to_clear.add(vhdl.indent(1) + "--Testing %s: Set to %s" % (register.vhdlName, all_one) )
@@ -941,12 +941,12 @@ class RegisterBank(vhdl.BasicVHDL):
                     write_to_clear.add(vhdl.indent(1) + "%s <= %s;" % (register.vhdlName, all_zero))
                     write_to_clear.add(vhdl.indent(1) + "wait until rising_edge(S_AXI_ACLK);")
                     write_to_clear.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Ones: %s.\"));" % ( vector_location, tb_value.replace('0','1'), register.vhdlName ))                        
+                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Ones: %s.\"));" % ( vector_location, tb_value.replace('0','1'), register.vhdlName ))
                     write_to_clear.add(vhdl.indent(1) + "rdata_v := (others=>'0');" )
                     write_to_clear.add(vhdl.indent(1) + "rdata_v%s := %s;" % (vector_location, all_one) )
                     write_to_clear.add(vhdl.indent(1) + "write_bus(net,axi_handle,%d,rdata_v,%s);" % (reg_address, register.byte_enable) )
                     write_to_clear.add(vhdl.indent(1) + "read_bus(net,axi_handle,%d,rdata_v);" % reg_address )
-                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Zeroes: %s.\"));" % ( vector_location, tb_value.replace('1','0'), register.vhdlName ))                        
+                    write_to_clear.add(vhdl.indent(1) + "check(rdata_v%s = %s,result(\"Test Read Zeroes: %s.\"));" % ( vector_location, tb_value.replace('1','0'), register.vhdlName ))
 
                 if register.regType == "Write2Pulse":
                     write_to_pulse.add(vhdl.indent(1) + "--Testing %s" % register.vhdlName)
@@ -1002,7 +1002,7 @@ class RegisterBank(vhdl.BasicVHDL):
 
 if __name__ == '__main__':
     #This is one example for a register bank to serve as base for learning purposes.
-    #It is not related to any core, block or nwither it have any meaning. Just a 
+    #It is not related to any core, block or nwither it have any meaning. Just a
     #bunch of loose registers.
 
     # first we declare a register bank.
@@ -1016,7 +1016,7 @@ if __name__ == '__main__':
     myregbank.add(0, "Golden")
     # This golden number should be 32bit, it must start at 0. We have to name the segment, in
     # this case, we will use 'G1'. It is not important here, but imagine multisegmented register...
-    # myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)    
+    # myregbank.reg[REG_ADDRESS].add(NAME,TYPE,START BIT POSITION,SIZE)
     myregbank.reg[0].add("g1", "ReadOnly", 0, 32)
     # this is an example for a read/write generic register.
     myregbank.add(1, "ReadWrite1")
@@ -1073,4 +1073,3 @@ if __name__ == '__main__':
     print("----------------------------------------------------------------")
 
     myregbank()
-    
