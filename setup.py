@@ -6,14 +6,14 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = '0.0.1'
+VERSION = 'v0.1'
 PACKAGE_NAME = 'hdltools'
 AUTHOR = 'Ricardo F Tafas Jr'
-AUTHOR_EMAIL = 'you@email.com'
+AUTHOR_EMAIL = 'contato@repodinamica.com.br'
 URL = 'https://github.com/rftafas/hdltools'
 
 LICENSE = 'Apache License 2.0'
-DESCRIPTION = 'Python VHDL and AXI4 code generators.'
+DESCRIPTION = 'Python VHDL code generators.'
 LONG_DESCRIPTION = (HERE / "README.md").read_text()
 LONG_DESC_TYPE = "text/markdown"
 

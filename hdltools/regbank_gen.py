@@ -997,5 +997,3 @@ class RegisterBank(vhdl.BasicVHDL):
         self.write_script()
         self.write_header()
         self.write_document()
-
-
