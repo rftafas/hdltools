@@ -20,7 +20,8 @@
 import sys
 import os
 from datetime import datetime
-import vhdl_gen as vhdl
+import hdltools.vhdl_gen as vhdl
+import hdltools.pkgvhdl_gen as pkgvhdl
 import math
 import random
 from mdutils.mdutils import MdUtils

@@ -19,7 +19,7 @@
 
 import sys
 import os
-import vhdl_gen as vhdl
+import hdltools.vhdl_gen as vhdl
 import math
 
 
@@ -107,8 +107,8 @@ class PkgVHDL:
         self.library = vhdl.LibraryList()
         self.packageBody = PackageBodyObj(name)
         self.packageDeclaration = PackageDeclarationObj(name)
-        if version is not None: 
-            self.declaration.constant.add("package_version_c", "String", "\"%s\"" % version) 
+        if version is not None:
+            self.declaration.constant.add("package_version_c", "String", "\"%s\"" % version)
 
     # def object(self):
     #     return self.packageDeclaration;

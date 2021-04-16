@@ -18,10 +18,10 @@ LONG_DESCRIPTION = (HERE / "README.md").read_text()
 LONG_DESC_TYPE = "text/markdown"
 
 INSTALL_REQUIRES = [
-      'math',
-      'random',
-      'mdutils',
-      'datetime',
+        #'math',
+        #'random',
+        'mdutils',
+        'datetime',
 ]
 
 setup(name=PACKAGE_NAME,
