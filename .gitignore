@@ -1,5 +1,6 @@
-scripts/output
-scripts/__pycache__
+hdltools/output
+hdltools/__pycache__
+hdltools/examples/output
 /vunit_out
 /_Alert.txt
 /_Log.txt
