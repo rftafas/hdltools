@@ -34,8 +34,8 @@ class PackageDeclarationObj:
         self.subPrograms = vhdl.SubProgramList()
         self.customTypes = vhdl.CustomTypeList()
         self.customTypesConstants = vhdl.CustomTypeConstantList()
-        self.declarationHeader = vhdl.GenericCodeBlock(1)
-        self.declarationFooter = vhdl.GenericCodeBlock(1)
+        self.declarationHeader = vhdl.GenericCodeBlock()
+        self.declarationFooter = vhdl.GenericCodeBlock()
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -71,8 +71,8 @@ class PackageBodyObj:
     def __init__(self, name):
         self.name = name
         self.subPrograms = ""
-        self.bodyCodeHeader = vhdl.GenericCodeBlock(1)
-        self.bodyCodeFooter = vhdl.GenericCodeBlock(1)
+        self.bodyCodeHeader = vhdl.GenericCodeBlock()
+        self.bodyCodeFooter = vhdl.GenericCodeBlock()
 
     def code(self, indent_level=0):
         hdl_code = ""
@@ -102,7 +102,7 @@ class PackageBodyObj:
 class PkgVHDL:
     def __init__(self, name, version=None):
         self.name = name
-        self.fileHeader = vhdl.GenericCodeBlock(0)
+        self.fileHeader = vhdl.GenericCodeBlock()
         self.fileHeader.add(vhdl.license_text)
         self.library = vhdl.LibraryList()
         self.packageBody = PackageBodyObj(name)

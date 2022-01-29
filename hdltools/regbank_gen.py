@@ -28,8 +28,30 @@ from mdutils.mdutils import MdUtils
 
 indent = vhdl.indent
 RegisterTypeSet = {"ReadOnly", "ReadWrite", "SplitReadWrite", "Write2Clear", "Write2Pulse"}
-vunitPort = ( "aclk", "--areset_n", "awaddr", "--awprot", "awvalid", "awready", "wdata", "wstrb", "wvalid", "wready", "bresp", "bvalid", "bready", "araddr", "--arprot", "arvalid", "arready", "rdata", "rresp", "rvalid", "rready" )
 
+vunitPort = {
+    "aclk" : "S_AXI_ACLK",
+    "--areset_n" : "S_AXI_ARESETN",
+    "awaddr" : " S_AXI_AWADDR",
+    "--awprot" : "S_AXI_AWPROT",
+    "awvalid" : "S_AXI_AWVALID",
+    "awready" : "S_AXI_AWREADY",
+    "wdata" : "S_AXI_WDATA",
+    "wstrb" : "S_AXI_WSTRB",
+    "wvalid" : "S_AXI_WVALID",
+    "wready" : "S_AXI_WREADY",
+    "bresp" : "S_AXI_BRESP",
+    "bvalid" : "S_AXI_BVALID",
+    "bready" : "S_AXI_BREADY",
+    "araddr" : "S_AXI_ARADDR",
+    "--arprot" : "S_AXI_ARPROT",
+    "arvalid" : "S_AXI_ARVALID",
+    "arready" : "S_AXI_ARREADY",
+    "rdata" : "S_AXI_RDATA",
+    "rresp" : "S_AXI_RRESP",
+    "rvalid" : "S_AXI_RVALID",
+    "rready" : "S_AXI_RREADY"
+}
 
 
 testBenchCode = """
@@ -233,17 +255,21 @@ TemplateCode = """
         elsif rising_edge(S_AXI_ACLK) then
             loc_addr := to_integer(awaddr_s(C_S_AXI_ADDR_WIDTH - 1 downto C_S_AXI_ADDR_LSB));
             for j in regwrite_s'range loop
-                for k in C_S_AXI_DATA_WIDTH - 1 downto 0 loop
-                    if regclear_s(j)(k) = '1' then
-                        regwrite_s(j)(k) <= '0';
-                    elsif regwrite_en = '1' then
-                        if j = loc_addr then
-                            if S_AXI_WSTRB(k/8) = '1' then
-                                regwrite_s(j)(k) <= S_AXI_WDATA(k);
+                if regwrite_en = '1' then
+                    if j = loc_addr then
+                        for k in C_S_AXI_DATA_WIDTH/8 - 1 downto 0 loop
+                            if S_AXI_WSTRB(k) = '1' then
+                                regwrite_s(j)( (k+1)*8-1 downto 8*k ) <= S_AXI_WDATA( (k+1)*8-1 downto 8*k );
                             end if;
-                        end if;
+                        end loop;
                     end if;
-                end loop;
+                else
+                    for k in C_S_AXI_DATA_WIDTH - 1 downto 0 loop
+                        if regclear_s(j)(k) = '1' then
+                            regwrite_s(j)(k) <= '0';
+                        end if;
+                    end loop;
+                end if;
             end loop;
         end if;
     end process;
@@ -536,7 +562,7 @@ class RegisterBank(vhdl.BasicVHDL):
         self.architecture.constant.add("register_bank_version_c", "String", "\"%s\"" % self.version)
         self.architecture.constant.add("C_S_AXI_ADDR_BYTE", "integer", "(C_S_AXI_DATA_WIDTH/8) + (C_S_AXI_DATA_WIDTH MOD 8)")
         self.architecture.constant.add("C_S_AXI_ADDR_LSB", "integer", str(math.ceil(self.addr_low)))
-        self.architecture.constant.add("REG_NUM", "integer", "2**(C_S_AXI_ADDR_WIDTH-C_S_AXI_ADDR_BYTE)")
+        self.architecture.constant.add("REG_NUM", "integer", "2**(C_S_AXI_ADDR_WIDTH-C_S_AXI_ADDR_LSB)")
         # Custom type
         self.architecture.customTypes.add("reg_t", "Array", "REG_NUM-1 downto 0", "std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)")
         # Signals
@@ -577,7 +603,7 @@ class RegisterBank(vhdl.BasicVHDL):
 
     # PRIVATE API
     def _resetArchBodyFooter(self):
-        self.architecture.bodyCodeFooter = vhdl.GenericCodeBlock(1)
+        self.architecture.bodyCodeFooter = vhdl.GenericCodeBlock()
 
     def _resetPort(self):
         self.entity.port = vhdl.PortList()
@@ -602,7 +628,8 @@ class RegisterBank(vhdl.BasicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-
+        for local_port in list(self.entity.port.keys()):
+            self.entity.port[local_port].assign(local_port)
 
     def _registerPortAdd(self):
         if self.useRecords:
@@ -616,6 +643,8 @@ class RegisterBank(vhdl.BasicVHDL):
                             register.updatePort()
                             for port_name, port_data in register.port.items():
                                 self.entity.port.append(port_data)
+                                self.entity.port[port_name].assign(port_name)
+
 
     def _registerConnection(self):
         self.architecture.bodyCodeFooter.add(vhdl.indent(1) + "--Register Connection")
@@ -704,7 +733,7 @@ class RegisterBank(vhdl.BasicVHDL):
             self._registerConnection()
             self._registerSetConnection()
             self._registerClearConnection()
-            self.pkg.packageDeclaration.component.append(self.object())
+            self.pkg.packageDeclaration.component.append(self.dec_object())
             self.generate_code = True
 
 
@@ -868,23 +897,20 @@ class RegisterBank(vhdl.BasicVHDL):
         testbench.architecture.signal["S_AXI_ACLK"].value = "'0'"
 
 
-        testbench.architecture.instances.add("entity vunit_lib.axi_lite_master","axi_master_u")
-        testbench.architecture.instances["axi_master_u"].generic.add("bus_handle","axi_handle")
+        testbench.architecture.instances.add("axi_master_u","entity vunit_lib.axi_lite_master")
+        testbench.architecture.instances["axi_master_u"].generic.add("bus_handle","","axi_handle")
 
-        tmp_j = 0
-        for port in self.entity.port:
-            if tmp_j < len(vunitPort):
-                testbench.architecture.instances["axi_master_u"].port.add(vunitPort[tmp_j],port)
-                tmp_j = tmp_j + 1
-
+        for local_port in list(vunitPort.keys()):
+            testbench.architecture.instances["axi_master_u"].port.add(local_port,"","")
+            testbench.architecture.instances["axi_master_u"].port[local_port].assign(vunitPort[local_port])
 
         testbench.architecture.instances.append(self.instanciation("dut_u"))
-        read_only = vhdl.GenericCodeBlock(4)
-        read_write = vhdl.GenericCodeBlock(4)
-        split_read_write = vhdl.GenericCodeBlock(4)
-        write_to_clear = vhdl.GenericCodeBlock(4)
-        write_to_pulse = vhdl.GenericCodeBlock(4)
-        external_clear = vhdl.GenericCodeBlock(4)
+        read_only = vhdl.GenericCodeBlock()
+        read_write = vhdl.GenericCodeBlock()
+        split_read_write = vhdl.GenericCodeBlock()
+        write_to_clear = vhdl.GenericCodeBlock()
+        write_to_pulse = vhdl.GenericCodeBlock()
+        external_clear = vhdl.GenericCodeBlock()
 
         for reg_number, register_word in self.reg.items():
             reg_address = reg_number * self.addr_increment
@@ -960,12 +986,12 @@ class RegisterBank(vhdl.BasicVHDL):
         write_to_pulse.add(vhdl.indent(1) + "check_passed(result(\"Write to Pulse Test Pass.\"));")
         external_clear.add(vhdl.indent(1) + "check_passed(result(\"External Clear Test Pass.\"));")
 
-        new_tb_code = testBenchCode.replace("--read_only_tag",read_only.code())
-        new_tb_code = new_tb_code.replace("--read_write_tag",read_write.code())
-        new_tb_code = new_tb_code.replace("--split_read_write_tag",split_read_write.code())
-        new_tb_code = new_tb_code.replace("--write_to_clear_tag",write_to_clear.code())
-        new_tb_code = new_tb_code.replace("--write_to_pulse_tag",write_to_pulse.code())
-        new_tb_code = new_tb_code.replace("--external_clear_tag",external_clear.code())
+        new_tb_code = testBenchCode.replace("--read_only_tag",read_only.code(4))
+        new_tb_code = new_tb_code.replace("--read_write_tag",read_write.code(4))
+        new_tb_code = new_tb_code.replace("--split_read_write_tag",split_read_write.code(4))
+        new_tb_code = new_tb_code.replace("--write_to_clear_tag",write_to_clear.code(4))
+        new_tb_code = new_tb_code.replace("--write_to_pulse_tag",write_to_pulse.code(4))
+        new_tb_code = new_tb_code.replace("--external_clear_tag",external_clear.code(4))
 
         testbench.architecture.bodyCodeHeader.add(new_tb_code)
 

@@ -198,7 +198,7 @@ class GenericObj:
         self.name = name
         self.value = value
         self.type = type
-        self.assign_name = ""
+        self.assign_name = value
 
     def assign(self, value=""):
         self.assign_name = value
@@ -651,36 +651,35 @@ class ComponentList(dict):
 
 
 class InstanceObj:
-    def __init__(self, name, value=""):
-        self.instance_name = name
-        self.component_name = "unknown"
+    def __init__(self, inst_name, comp_name):
+        self.instance_name = inst_name
+        self.component_name = comp_name
         self.generic = GenericList()
         self.port = PortList()
 
-        if isinstance(value, BasicVHDL):
-            self.component_name = value.entity.name
-            self.generic = value.entity.generic
-            self.port = value.entity.port
+        if isinstance(comp_name, BasicVHDL):
+            self.component_name = comp_name.entity.name
+            self.generic = comp_name.entity.generic
+            self.port = comp_name.entity.port
 
-        elif isinstance(value, Entity):
-            self.component_name = value.name
-            self.generic = value.generic
-            self.port = value.port
+        elif isinstance(comp_name, Entity):
+            self.component_name = comp_name.name
+            self.generic = comp_name.generic
+            self.port = comp_name.port
 
-        elif isinstance(value, ComponentObj):
-            self.component_name = value.name
-            self.generic = value.generic
-            self.port = value.port
+        elif isinstance(comp_name, ComponentObj):
+            self.component_name = comp_name.name
+            self.generic = comp_name.generic
+            self.port = comp_name.port
 
         else:
-            self.component_name = "unknown"
             self.generic = GenericList()
             self.port = PortList()
 
     def code(self, indent_level=2):
         assign_gen_code = GenericCodeBlock()
         assign_port_code = GenericCodeBlock()
-        hdl_code = indent(indent_level) + ("%s : %s\r\n" % (self.instance_name, self.component_name))
+        hdl_code = indent(indent_level) + ("%s : %s\r\n" % (self.instance_name, self.component_name) )
         if (self.generic):
             hdl_code = hdl_code + indent(indent_level+1) + ("generic map (\r\n")
             for j in self.generic:
@@ -698,8 +697,8 @@ class InstanceObj:
         return hdl_code
 
 class InstanceList(dict):
-    def add(self, component_name, instance_name):
-        self[instance_name] = InstanceObj(component_name,instance_name)
+    def add(self, instance_name, component_name):
+        self[instance_name] = InstanceObj(instance_name,component_name)
 
     def append(self, input):
         if isinstance(input,InstanceObj):
@@ -817,7 +816,7 @@ class BasicVHDL:
         self.entity = Entity(entity_name)
         self.architecture = Architecture(architecture_name, entity_name)
         self.instance_name = self.entity.name+"_u"
-        self.instance = InstanceObj(self.instance_name)
+        self.instance = InstanceObj(self.instance_name,self.entity)
 
     def dec_object(self):
         self.component = ComponentObj(self.entity.name)
@@ -828,7 +827,8 @@ class BasicVHDL:
     def declaration(self):
         return self.dec_object()
 
-    def instanciation(self, instance_name=""):
+    def instanciation(self, instance_name):
+        self.instance = InstanceObj(self.instance_name,self.entity)
         instance = ""
         if (instance_name):
             instance = copy.deepcopy(InstanceObj(instance_name,self.entity))
