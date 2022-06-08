@@ -341,13 +341,12 @@ class RecordTypeObj:
         self.element.add(name, type, init)
 
     def code(self):
-        hdl_code = ""
-        hdl_code = hdl_code + indent(1) + "type %s is record\r\n" % self.name
+        hdl_code = GenericCodeBlock()
+        hdl_code.add("type %s is record" % self.name)
         for j in self.element:
-            hdl_code = hdl_code + indent(2) + "%s : %s;\n\r" % (self.element[j].name, self.element[j].type)
-        hdl_code = hdl_code + "end record %s;\r\n" % self.name
-        hdl_code = hdl_code + "\r\n"
-        return hdl_code
+            hdl_code.add(indent(1) + "%s : %s;" % (self.element[j].name, self.element[j].type) )
+        hdl_code.add( "end record %s;" % self.name )
+        return hdl_code.code()
 
 class SubTypeObj:
     def __init__(self, name, *args):
