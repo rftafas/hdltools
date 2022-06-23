@@ -1,6 +1,18 @@
 
 # hdltools
 
+## Installation
+
+- Download the repository
+- Go to repository directory (we assume it will be placed at '''./hdltools''')
+- Inttall with PIP
+  - pip install hdltools
+  - add '--upgrade' to replace a previous installation.
+
+# VHDL Generator
+
+# Register Bank Generator
+
 ## Aim
 The purpose of the code in this repository is to auto-generate a bank of registers using VHDL with an interface AXI Lite to be used in programmable logic design.
 
