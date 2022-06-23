@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = 'v0.1'
+VERSION = 'v0.3'
 PACKAGE_NAME = 'hdltools'
 AUTHOR = 'Ricardo F Tafas Jr'
 AUTHOR_EMAIL = 'contato@repodinamica.com.br'

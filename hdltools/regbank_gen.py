@@ -483,7 +483,6 @@ class RegisterBit:
         self.actionRead.vhdlName  = entity_name + "_o." + self.actionRead.name
         self.actionWrite.vhdlName  = entity_name + "_o." + self.actionWrite.name
 
-
     def addDescription(self, str):
         self.description = str
 
@@ -656,37 +655,27 @@ class RegisterBank(vhdl.BasicVHDL):
         self.entity.port.add("S_AXI_RRESP", "out", "std_logic_vector(1 downto 0)")
         self.entity.port.add("S_AXI_RVALID", "out", "std_logic")
         self.entity.port.add("S_AXI_RREADY", "in", "std_logic")
-        for local_port in list(self.entity.port.keys()):
-            self.entity.port[local_port].assign(local_port)
 
     def _registerPortAdd(self):
         if self.useRecords:
             self.entity.port.add(self.entity.name+"_i","in",self.entity.name+"_i_t")
-            self.entity.port[self.entity.name+"_i"].assign(self.entity.name+"_i")
             self.entity.port.add(self.entity.name+"_o","out",self.entity.name+"_o_t")
-            self.entity.port[self.entity.name+"_o"].assign(self.entity.name+"_o")
 
         else:
             for register_num, register_word in self.reg.items():
                 for index, register in register_word.items():
                     if isinstance(register,RegisterBit) or isinstance(register,RegisterSlice):
                         self.entity.port.add(register.vhdlName,register.direction,register.vhdlType)
-                        self.entity.port[register.vhdlName].assign(register.vhdlName)
-
 
                         if register.regType == "SplitReadWrite":
                             self.entity.port.add(register.inv_vhdlName,register.inv_direction,register.vhdlType)
-                            self.entity.port[register.inv_vhdlName].assign(register.inv_vhdlName)
 
                         if register.externalClear:
                             self.entity.port.add(register.clear.vhdlName, "in", "std_logic")
-                            self.entity.port[register.clear.vhdlName].assign(register.clear.vhdlName)
 
                         if register.activitySignal:
                             self.entity.port.add(register.actionRead.vhdlName,"out","std_logic")
-                            self.entity.port[register.actionRead.vhdlName].assign(register.actionRead.vhdlName)
                             self.entity.port.add(register.actionWrite.vhdlName,"out","std_logic")
-                            self.entity.port[register.actionWrite.vhdlName].assign(register.actionWrite.vhdlName)
 
 
     def _registerConnection(self):
@@ -813,6 +802,18 @@ class RegisterBank(vhdl.BasicVHDL):
         self._generate()
         return vhdl.BasicVHDL.code(self)
 
+    def write_instantiation_template(self):
+        hdl_code = self.instance.code()
+
+        if (not os.path.exists("output")):
+            os.makedirs("output")
+        output_file_name = "output/"+self.entity.name+".vhi"
+        output_file = open(output_file_name, "w+")
+        for line in hdl_code:
+            output_file.write(line)
+
+        output_file.close()
+
     def write_package(self):
         self.pkg.write_file()
 
@@ -935,15 +936,22 @@ class RegisterBank(vhdl.BasicVHDL):
         # set starting value to clock. All other signals should be handled by reset.
         testbench.architecture.signal["S_AXI_ACLK"].value = "'0'"
 
+        axi_master = vhdl.InstanceObj("axi_master_u","entity vunit_lib.axi_lite_master")
+        for _element in list(vunitPort.keys()):
+            axi_master.port.add(_element,"type","")
+            axi_master.port[_element].assign(vunitPort[_element])
+        axi_master.generic.add("bus_handle","type","axi_handle")
+        testbench.architecture.instances.append(axi_master)
 
-        testbench.architecture.instances.add("axi_master_u","entity vunit_lib.axi_lite_master")
-        testbench.architecture.instances["axi_master_u"].generic.add("bus_handle","","axi_handle")
 
-        for local_port in list(vunitPort.keys()):
-            testbench.architecture.instances["axi_master_u"].port.add(local_port,"","")
-            testbench.architecture.instances["axi_master_u"].port[local_port].assign(vunitPort[local_port])
+        #creates an instance. It comes empty, must assign.
+        dut_instance = self.instanciation("dut_u")
+        for _element in dut_instance.generic:
+            dut_instance.generic[_element].assign(_element)
+        for _element in dut_instance.port:
+            dut_instance.port[_element].assign(_element)
+        testbench.architecture.instances.append(dut_instance)
 
-        testbench.architecture.instances.append(self.instanciation("dut_u"))
         read_only = vhdl.GenericCodeBlock()
         read_write = vhdl.GenericCodeBlock()
         split_read_write = vhdl.GenericCodeBlock()
@@ -1063,3 +1071,4 @@ class RegisterBank(vhdl.BasicVHDL):
         self.write_script()
         self.write_header()
         self.write_document()
+        self.write_instantiation_template()

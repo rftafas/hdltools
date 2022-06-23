@@ -198,10 +198,7 @@ class GenericObj:
         self.name = name
         self.value = value
         self.type = type
-        self.assign_name = value
-
-    def assign(self, value=""):
-        self.assign_name = value
+        self.assign_value = value
 
     def code(self, indent_level=0):
         if self.value:
@@ -228,15 +225,12 @@ class PortObj:
         self.direction = direction
         self.type = type
         self.value = value
-        self.assign_name = ""
-
-    def assign(self, value=""):
-        self.assign_name = value
+        self.assign_value = ""
 
     def code(self, indent_level=0):
-        if self.value is None:
+        if ((self.value is None) or self.direction == "out"):
             hdl_code = indent(indent_level) + ("%s : %s %s;\r\n" % (self.name, self.direction, self.type))
-        else:
+        elif (self.direction == "in" or self.direction == "inout"):
             hdl_code = indent(indent_level) + ("%s : %s %s := %s;\r\n" %
                                               (self.name, self.direction, self.type, self.value))
         return hdl_code
@@ -647,33 +641,51 @@ class ComponentList(dict):
         return DictCode(self)
 
 # ------------------- Instance -----------------------
-
-
 class InstanceObj:
+    class _GenericObj(GenericObj):
+        def assign(self,assign_value):
+            self.assign_value = assign_value
+
+    class _PortObj(PortObj):
+        def assign(self,assign_value):
+            self.assign_value = assign_value
+
+    class _PortList(PortList):
+        def add(self, name, direction, type, value=None):
+            self[name] = InstanceObj._PortObj(name, direction, type, value)
+        def _listcopy(self, port):
+            for port_name in port:
+                _element = port[port_name]
+                self.add(_element.name, _element.direction, _element.type, _element.value)
+
+    class _GenericList(GenericList):
+        def add(self, name, type, value):
+            self[name] = InstanceObj._GenericObj(name, type, value)
+        def _listcopy(self, generic):
+            for generic_name in generic:
+                _element = generic[generic_name]
+                self.add(_element.name, _element.type, _element.value)
+
     def __init__(self, inst_name, comp_name):
         self.instance_name = inst_name
         self.component_name = comp_name
-        self.generic = GenericList()
-        self.port = PortList()
+        self.port = self._PortList()
+        self.generic = self._GenericList()
 
         if isinstance(comp_name, BasicVHDL):
             self.component_name = comp_name.entity.name
-            self.generic = comp_name.entity.generic
-            self.port = comp_name.entity.port
+            self.generic._listcopy(comp_name.entity.generic)
+            self.port._listcopy(comp_name.entity.port)
 
         elif isinstance(comp_name, Entity):
             self.component_name = comp_name.name
-            self.generic = comp_name.generic
-            self.port = comp_name.port
+            self.generic._listcopy(comp_name.generic)
+            self.port._listcopy(comp_name.port)
 
         elif isinstance(comp_name, ComponentObj):
             self.component_name = comp_name.name
-            self.generic = comp_name.generic
-            self.port = comp_name.port
-
-        else:
-            self.generic = GenericList()
-            self.port = PortList()
+            self.generic._listcopy(comp_name.generic)
+            self.port._listcopy(comp_name.port)
 
     def code(self, indent_level=2):
         assign_gen_code = GenericCodeBlock()
@@ -682,14 +694,14 @@ class InstanceObj:
         if (self.generic):
             hdl_code = hdl_code + indent(indent_level+1) + ("generic map (\r\n")
             for j in self.generic:
-                assign_gen_code.add(indent(indent_level+2) + j + " => " + self.generic[j].assign_name,",\r\n")
+                assign_gen_code.add(indent(indent_level+2) + j + " => " + self.generic[j].assign_value,",\r\n")
             hdl_code = hdl_code + VHDLenum(assign_gen_code)
 
         if (self.port):
             hdl_code = hdl_code + indent(indent_level+1) + (")\r\n")
             hdl_code = hdl_code + indent(indent_level+1) + ("port map (\r\n")
             for j in self.port:
-                assign_port_code.add(indent(indent_level+2) + j + " => " + self.port[j].assign_name,",\r\n")
+                assign_port_code.add(indent(indent_level+2) + j + " => " + self.port[j].assign_value,",\r\n")
             hdl_code = hdl_code + VHDLenum(assign_port_code)
         hdl_code = hdl_code + indent(2) + (");\r\n")
         hdl_code = hdl_code + "\r\n"
@@ -826,13 +838,11 @@ class BasicVHDL:
     def declaration(self):
         return self.dec_object()
 
-    def instanciation(self, instance_name):
+    def instanciation(self, inst_name = ""):
         self.instance = InstanceObj(self.instance_name,self.entity)
-        instance = ""
-        if (instance_name):
-            instance = copy.deepcopy(InstanceObj(instance_name,self.entity))
-        else:
-            instance = copy.deepcopy(InstanceObj(self.instance_name,self.entity))
+        instance = InstanceObj(self.instance_name,self.entity)
+        if (inst_name):
+            instance.instance_name = inst_name
         return instance
 
     def write_file(self):
